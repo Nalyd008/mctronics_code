@@ -1,0 +1,5 @@
+/Users/nalyd/MPLABProjects/McTronics/_build/McTronics/default/CMakeFiles/McTronics_default_default_XC16_compile.dir
+/Users/nalyd/MPLABProjects/McTronics/_build/McTronics/default/CMakeFiles/McTronics_default_image_yDBHIptY.dir
+/Users/nalyd/MPLABProjects/McTronics/_build/McTronics/default/CMakeFiles/McTronics_default_Bin2Hex.dir
+/Users/nalyd/MPLABProjects/McTronics/_build/McTronics/default/CMakeFiles/edit_cache.dir
+/Users/nalyd/MPLABProjects/McTronics/_build/McTronics/default/CMakeFiles/rebuild_cache.dir
