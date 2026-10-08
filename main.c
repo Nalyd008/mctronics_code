@@ -8,8 +8,14 @@
 #include <xc.h>
 #pragma config FNOSC = FRCDIV // 8MHz Fast RC with Postscaler
 
-double kp = .01;
+#define TRUE 1
+#define FALSE 0
+#define FORWARD 1
+#define BACKWARD 0
+#define LEFT 0
+#define RIGHT 1
 
+double kp = .01;
 
 double oscFreq;
 int oscDiv;
@@ -58,8 +64,8 @@ void _ISR _T1Interrupt(void){
     loopCount++;
 }
 
-void setMotorSpeed(double speed, int forward, int motor){
-    int direction = (forward == 1) ? 1 : -1;
+void setMotorSpeed(double speed, unsigned char forward, unsigned char motor){
+    char direction = (forward) ? 1 : -1;
     // Proportional controller
     static double currentSpeed = 0;
     double desiredSpeed = speed * direction;
@@ -144,24 +150,24 @@ int main(){
     while(1) {
         switch(currentState){
             case STOPPED:
-                setMotorSpeed(0,1,0);
-                setMotorSpeed(1,1,0);
+                setMotorSpeed(0,FORWARD,LEFT);
+                setMotorSpeed(0,FORWARD,RIGHT);
                 break;
             case DRIVE_FORWARD:
-                setMotorSpeed(1,1,0);
-                setMotorSpeed(1,1,1);
+                setMotorSpeed(1,FORWARD,LEFT);
+                setMotorSpeed(1,FORWARD,RIGHT);
                 break;
             case TURN_LEFT_90:
-                setMotorSpeed(.25,1,0);
-                setMotorSpeed(.25,-1,0);
+                setMotorSpeed(.25,FORWARD,LEFT);
+                setMotorSpeed(.25,BACKWARD,RIGHT);
                 break;
             case TURN_LEFT_180:
-                setMotorSpeed(.5,1,0);
-                setMotorSpeed(.5,-1,0);
+                setMotorSpeed(.5,FORWARD,LEFT);
+                setMotorSpeed(.5,BACKWARD,RIGHT);
                 break;
             case DRIVE_BACKWARD:
-                setMotorSpeed(1,0,0);
-                setMotorSpeed(1,0,1);
+                setMotorSpeed(1,BACKWARD,RIGHT);
+                setMotorSpeed(1,BACKWARD,LEFT);
                 break;
         }
             
