@@ -1,8 +1,0 @@
-[
-{
-  "directory": "/Users/nalyd/MPLABProjects/McTronics/_build/McTronics/default",
-  "command": "/Applications/microchip/xc16/v2.10/bin/xc16-gcc -DXPRJ_default=default -D__DEBUG -x c -g -mcpu=24F16KA301 -O0 -msmart-io=1 -Wall -msfr-warn=off -mdfp=/Users/nalyd/.mchp_packs/Microchip/PIC24F-KA-KL-KM_DFP/1.6.395/xc16 -o CMakeFiles/McTronics_default_default_XC16_compile.dir/Users/nalyd/MPLABProjects/McTronics/main.c.o -c /Users/nalyd/MPLABProjects/McTronics/main.c",
-  "file": "/Users/nalyd/MPLABProjects/McTronics/main.c",
-  "output": "/Users/nalyd/MPLABProjects/McTronics/_build/McTronics/default/CMakeFiles/McTronics_default_default_XC16_compile.dir/Users/nalyd/MPLABProjects/McTronics/main.c.o"
-}
-]
