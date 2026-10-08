@@ -77,7 +77,7 @@ void setMotorSpeed(double speed, int forward, int motor){
     // motor 1 = right
     // Pin 5 OC3 - PWM
     // Pin 6 RB2 - Direction
-    int realFreq = (oscFreq / oscDiv);
+    int realFreq = (oscFreq / oscDiv)-1;
     int period = currentSpeed * (realFreq/1000.);
     double dutyCycle = .5;
 
