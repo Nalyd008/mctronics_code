@@ -8,10 +8,10 @@ USING PIC24F16KA301 WITH THIS PIN CONFIGURATION
 
 PIN 1 - 
 PIN 2 - 
-PIN 3 - 
+PIN 3 - left motor reverse pin
 PIN 4 - PWM out for drive left
 PIN 5 - PWM out for drive right
-PIN 6 - 
+PIN 6 - right motor reverse pin
 PIN 7 - 
 PIN 8 - 
 PIN 9 - 
