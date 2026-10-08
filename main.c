@@ -58,7 +58,7 @@ void _ISR _T1Interrupt(void){
     loopCount++;
 }
 
-int setMotorSpeed(double speed, int forward, int motor){
+void setMotorSpeed(double speed, int forward, int motor){
     int direction = (forward == 1) ? 1 : -1;
     // Proportional controller
     static double currentSpeed = 0;
