@@ -11,7 +11,7 @@
 double kp = .01;
 
 
-int oscFreq;
+double oscFreq;
 int oscDiv;
 
 enum ROBOT_STATE{
@@ -138,7 +138,7 @@ int main(){
 
     clearRegisters();
     pwmSetup();
-    timerSteup();
+    timerSetup();
     interruptSetup();
 
     while(1) {
