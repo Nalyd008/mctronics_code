@@ -19,6 +19,8 @@ double kp = .01;
 
 double oscFreq;
 int oscDiv;
+int microSteps = 1;
+int FULL_STEPS_PER_REVOLUTION = 200;
 
 enum ROBOT_STATE{
     STOPPED,
@@ -29,10 +31,26 @@ enum ROBOT_STATE{
 };
 
 enum ROBOT_STATE currentState = STOPPED;
-
+int countsPerRevolutionPerSecond(double revolutionsPerSecond){
+    int clockCounts = (oscFreq / oscDiv) / (FULL_STEPS_PER_REVOLUTION * microSteps * revolutionsPerSecond);
+    return clockCounts; 
+}
+int countsPerDegreesPerSecond(double degreesPerSecond){
+    return countsPerRevolutionPerSecond(degreesPerSecond / 360);
+}
+int countsPerSeconds(double seconds){
+    int clockCounts = oscFreq * seconds / oscDiv;
+    return clockCounts;
+}
+int countsPerFrequency(double hertz){
+    int clockCounts = (oscFreq/oscDiv) / hertz;
+    return clockCounts;
+}
 void _ISR _T1Interrupt(void){
     static int loopCount = 0;
     _T1IF = 0;
+    setMotorSpeed(0,FORWARD,LEFT);
+    setMotorSpeed(0,FORWARD,RIGHT);
     switch(currentState){
         case STOPPED:
             currentState = DRIVE_FORWARD;
@@ -64,15 +82,15 @@ void _ISR _T1Interrupt(void){
     loopCount++;
 }
 
-void setMotorSpeed(double speed, unsigned char forward, unsigned char motor){
-    char direction = (forward) ? 1 : -1;
-    // Proportional controller
-    static double currentSpeed = 0;
-    double desiredSpeed = speed * direction;
-    double error = desiredSpeed - currentSpeed;
-    double delta = error * kp;
+void setMotorSpeed(double period, unsigned char forward, unsigned char motor){
+    // char direction = (forward) ? 1 : -1;
+    // // Proportional controller
+    // static double currentSpeed = 0;
+    // double desiredSpeed = speed * direction;
+    // double error = desiredSpeed - currentSpeed;
+    // double delta = error * kp;
 
-    currentSpeed += delta;
+    // currentSpeed += delta;
     // speed is percentage of frequency of the oscilltor
 
     // if forward == 1, drives forward forward == 0, backwards
@@ -83,18 +101,16 @@ void setMotorSpeed(double speed, unsigned char forward, unsigned char motor){
     // motor 1 = right
     // Pin 5 OC3 - PWM
     // Pin 6 RB2 - Direction
-    int realFreq = (oscFreq / oscDiv)-1;
-    int period = currentSpeed * (realFreq/1000.);
+    // int realFreq = (oscFreq / oscDiv)-1;
+    // int period = currentSpeed * (realFreq/1000.);
     double dutyCycle = .5;
+    OC2RS = period;
+    OC2R = period * dutyCycle;
 
     if(!motor){
-        OC2RS = period;
-        OC2R = period * dutyCycle;
         _LATA1 = forward;
     }
     else{
-        OC3RS = period;
-        OC3R = period * dutyCycle;
         _LATA2 = (forward ^ 1); // reverses the right so it will be in the same direction as the left
     }
     
@@ -154,20 +170,20 @@ int main(){
                 setMotorSpeed(0,FORWARD,RIGHT);
                 break;
             case DRIVE_FORWARD:
-                setMotorSpeed(1,FORWARD,LEFT);
-                setMotorSpeed(1,FORWARD,RIGHT);
+                setMotorSpeed(countsPerDegreesPerSecond(45),FORWARD,LEFT);
+                setMotorSpeed(countsPerDegreesPerSecond(45),FORWARD,RIGHT);
                 break;
             case TURN_LEFT_90:
-                setMotorSpeed(.25,FORWARD,LEFT);
-                setMotorSpeed(.25,BACKWARD,RIGHT);
+                setMotorSpeed(countsPerDegreesPerSecond(22.5),FORWARD,LEFT);
+                setMotorSpeed(countsPerDegreesPerSecond(22.5),BACKWARD,RIGHT);
                 break;
             case TURN_LEFT_180:
-                setMotorSpeed(.5,FORWARD,LEFT);
-                setMotorSpeed(.5,BACKWARD,RIGHT);
+                setMotorSpeed(countsPerDegreesPerSecond(22.5),FORWARD,LEFT);
+                setMotorSpeed(countsPerDegreesPerSecond(22.5),BACKWARD,RIGHT);
                 break;
             case DRIVE_BACKWARD:
-                setMotorSpeed(1,BACKWARD,RIGHT);
-                setMotorSpeed(1,BACKWARD,LEFT);
+                setMotorSpeed(countsPerDegreesPerSecond(45),BACKWARD,RIGHT);
+                setMotorSpeed(countsPerDegreesPerSecond(45),BACKWARD,LEFT);
                 break;
         }
             
