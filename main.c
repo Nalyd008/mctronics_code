@@ -5,6 +5,7 @@
  * @brief Main function
  */
 
+#include <stdlib.h>
 #include <xc.h>
 #pragma config FNOSC = FRCDIV // 8MHz Fast RC with Postscaler
 
@@ -15,11 +16,14 @@
 #define LEFT 0
 #define RIGHT 1
 
-double kp = .01;
+unsigned char timer1Done = 0;
+
+long double kp = 1;
 
 double oscFreq;
 int oscDiv;
-int microSteps = 1;
+int timerPrescaler;
+int microSteps = 2;
 int FULL_STEPS_PER_REVOLUTION = 200;
 
 enum ROBOT_STATE{
@@ -31,6 +35,7 @@ enum ROBOT_STATE{
 };
 
 enum ROBOT_STATE currentState = STOPPED;
+enum ROBOT_STATE nextState = STOPPED;
 int countsPerRevolutionPerSecond(double revolutionsPerSecond){
     int clockCounts = (oscFreq / oscDiv) / (FULL_STEPS_PER_REVOLUTION * microSteps * revolutionsPerSecond);
     return clockCounts; 
@@ -38,59 +43,29 @@ int countsPerRevolutionPerSecond(double revolutionsPerSecond){
 int countsPerDegreesPerSecond(double degreesPerSecond){
     return countsPerRevolutionPerSecond(degreesPerSecond / 360);
 }
-int countsPerSeconds(double seconds){
+int countsPerSecond(double seconds){
     int clockCounts = oscFreq * seconds / oscDiv;
+    return clockCounts;
+}
+int timerCountsPerSecond(double seconds){
+    int clockCounts = oscFreq * seconds / oscDiv / timerPrescaler;
     return clockCounts;
 }
 int countsPerFrequency(double hertz){
     int clockCounts = (oscFreq/oscDiv) / hertz;
     return clockCounts;
 }
-void _ISR _T1Interrupt(void){
-    static int loopCount = 0;
-    _T1IF = 0;
-    setMotorSpeed(0,FORWARD,LEFT);
-    setMotorSpeed(0,FORWARD,RIGHT);
-    switch(currentState){
-        case STOPPED:
-            currentState = DRIVE_FORWARD;
-            break;
-        case DRIVE_FORWARD:
-            if(loopCount % 6 == 1){
-                currentState = TURN_LEFT_90;
-            }
-            else if(loopCount % 6 == 3){
-                currentState = TURN_LEFT_180;
-            }
-            else if(loopCount % 6 == 5){
-                currentState = TURN_LEFT_180;
-            }
-            else{
-                currentState = DRIVE_FORWARD;
-            }
-            break;
-        case TURN_LEFT_90:
-            currentState = DRIVE_FORWARD;
-            break;
-        case TURN_LEFT_180:
-            currentState = DRIVE_FORWARD;
-            break;
-        case DRIVE_BACKWARD:
-            currentState = DRIVE_FORWARD;
-            break;
-    }
-    loopCount++;
-}
 
-void setMotorSpeed(double period, unsigned char forward, unsigned char motor){
-    // char direction = (forward) ? 1 : -1;
-    // // Proportional controller
-    // static double currentSpeed = 0;
-    // double desiredSpeed = speed * direction;
-    // double error = desiredSpeed - currentSpeed;
-    // double delta = error * kp;
+void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
+    double dutyCycle =  .5;
+    // char signedDirection = (direction) ? 1 : -1;
 
-    // currentSpeed += delta;
+    // static long double currentRightSpeed = 0;
+    // static long double currentLeftSpeed = 0;
+
+    int speed = counts;
+
+    
     // speed is percentage of frequency of the oscilltor
 
     // if forward == 1, drives forward forward == 0, backwards
@@ -101,17 +76,34 @@ void setMotorSpeed(double period, unsigned char forward, unsigned char motor){
     // motor 1 = right
     // Pin 5 OC3 - PWM
     // Pin 6 RB2 - Direction
-    // int realFreq = (oscFreq / oscDiv)-1;
-    // int period = currentSpeed * (realFreq/1000.);
-    double dutyCycle = .5;
-    OC2RS = period;
-    OC2R = period * dutyCycle;
 
-    if(!motor){
-        _LATA1 = forward;
+    
+
+    if(motor){ // Right motor
+        // Proportional Controller
+
+        // long double desiredSpeed = counts * signedDirection;
+        // long double error = desiredSpeed - currentRightSpeed;
+        // long double delta = error / kp;
+        // currentRightSpeed += delta;
+
+        // int speed = abs(currentRightSpeed);
+        OC3RS = speed;
+        OC3R = (speed + 1) * dutyCycle;
+        _LATB2 = (direction ^ 1);
     }
-    else{
-        _LATA2 = (forward ^ 1); // reverses the right so it will be in the same direction as the left
+    else{ 
+        // Proportional Controller
+        // long double desiredSpeed = counts * signedDirection;
+        // long double error = desiredSpeed - currentLeftSpeed;
+        // long double delta = error / kp;
+        // currentLeftSpeed += delta;
+        // int speed = abs(currentLeftSpeed);
+
+        OC2RS = speed;
+        OC2R = (speed+1) * dutyCycle;
+        _LATA1 = direction;
+         // reverses the right so it will be in the same direction as the left
     }
     
 }
@@ -120,7 +112,6 @@ void clearRegisters(){
     ANSB = 0;
     TRISA = 0;
     TRISB = 0;
-
     T1CON = 0;
 
     OC1CON1 = 0;
@@ -130,10 +121,19 @@ void clearRegisters(){
     OC3CON1 = 0;
     OC3CON2 = 0;
 }
+void _ISR _T1Interrupt(void){
+    _T1IF = 0;
+    timer1Done = 1;
+}
 void timerSetup(){
-    T1CONbits.TON = 1; // Turn on timer 1
+   
     T1CONbits.TCS = 0; // Select internal clock (Osc/2)
+
     T1CONbits.TCKPS = 0b11; // Prescale value 1:256 ~ 4s with no Postscale
+    timerPrescaler = 256; // Make this match above
+    PR1 = timerCountsPerSecond(4);
+
+    T1CONbits.TON = 1; // Turn on timer 1
 }
 void pwmSetup(){
     OC2CON1bits.OCTSEL = 0b111; // System clock
@@ -156,34 +156,65 @@ void interruptSetup(){
 int main(){
     oscFreq = 8000000;
     _RCDIV = 0b001; // Postscaler = 2
-    oscDiv = 2;
+    oscDiv = 4;
 
     clearRegisters();
     pwmSetup();
     timerSetup();
     interruptSetup();
-
     while(1) {
+        currentState = nextState;
         switch(currentState){
             case STOPPED:
-                setMotorSpeed(0,FORWARD,LEFT);
-                setMotorSpeed(0,FORWARD,RIGHT);
+                setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,LEFT);
+                setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,RIGHT);
+                if(timer1Done){
+                    static int stopCount = 0;
+                    PR1 = timerCountsPerSecond(.5);
+                    if(stopCount % 4 == 1){
+                        PR1 = timerCountsPerSecond(2);
+                        nextState = TURN_LEFT_90;
+                    }
+                    else if(stopCount % 4 == 3){
+                        PR1 = timerCountsPerSecond(2);
+                        nextState = TURN_LEFT_180;
+                    }
+                    else{
+                        PR1 = timerCountsPerSecond(2);
+                        nextState = DRIVE_FORWARD;
+                    }
+                    TMR1 = 0;
+                    stopCount++;
+                }
                 break;
             case DRIVE_FORWARD:
-                setMotorSpeed(countsPerDegreesPerSecond(45),FORWARD,LEFT);
-                setMotorSpeed(countsPerDegreesPerSecond(45),FORWARD,RIGHT);
+                setMotorSpeed(countsPerDegreesPerSecond(1240),FORWARD,LEFT);
+                setMotorSpeed(countsPerDegreesPerSecond(1240),FORWARD,RIGHT);
+                if(timer1Done){
+                    nextState = STOPPED;
+                }
                 break;
             case TURN_LEFT_90:
-                setMotorSpeed(countsPerDegreesPerSecond(22.5),FORWARD,LEFT);
-                setMotorSpeed(countsPerDegreesPerSecond(22.5),BACKWARD,RIGHT);
+                setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,LEFT);
+                setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,RIGHT);
+                if(timer1Done){
+                    nextState = STOPPED;
+                }
                 break;
             case TURN_LEFT_180:
-                setMotorSpeed(countsPerDegreesPerSecond(22.5),FORWARD,LEFT);
-                setMotorSpeed(countsPerDegreesPerSecond(22.5),BACKWARD,RIGHT);
+                setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,LEFT);
+                setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,RIGHT);
+                if(timer1Done){
+                    nextState = STOPPED;
+                }
                 break;
             case DRIVE_BACKWARD:
-                setMotorSpeed(countsPerDegreesPerSecond(45),BACKWARD,RIGHT);
-                setMotorSpeed(countsPerDegreesPerSecond(45),BACKWARD,LEFT);
+                PR1 = timerCountsPerSecond(1);
+                setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,RIGHT);
+                setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,LEFT);
+                if(timer1Done){
+                    nextState = STOPPED;
+                }
                 break;
         }
             
