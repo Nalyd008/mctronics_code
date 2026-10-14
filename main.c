@@ -23,7 +23,7 @@ long double kp = 1;
 double oscFreq;
 int oscDiv;
 int timerPrescaler;
-int microSteps = 2;
+int microSteps = 4;
 int FULL_STEPS_PER_REVOLUTION = 200;
 
 enum ROBOT_STATE{
@@ -169,55 +169,61 @@ int main(){
                 setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,LEFT);
                 setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,RIGHT);
                 if(timer1Done){
+                    timer1Done = 0;
                     static int stopCount = 0;
                     PR1 = timerCountsPerSecond(.5);
                     if(stopCount % 4 == 1){
-                        PR1 = timerCountsPerSecond(2);
+                        PR1 = timerCountsPerSecond(.25);
+                        setMotorSpeed(countsPerDegreesPerSecond(360),FORWARD,LEFT);
+                        setMotorSpeed(countsPerDegreesPerSecond(360),BACKWARD,RIGHT);
                         nextState = TURN_LEFT_90;
                     }
                     else if(stopCount % 4 == 3){
-                        PR1 = timerCountsPerSecond(2);
+                        PR1 = timerCountsPerSecond(.25);
+                        setMotorSpeed(countsPerDegreesPerSecond(360),FORWARD,LEFT);
+                        setMotorSpeed(countsPerDegreesPerSecond(360),BACKWARD,RIGHT);
                         nextState = TURN_LEFT_180;
                     }
                     else{
                         PR1 = timerCountsPerSecond(2);
+                        setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,LEFT);
+                        setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,RIGHT);
                         nextState = DRIVE_FORWARD;
                     }
+                    // else{
+                    //     PR1 = timerCountsPerSecond(1);
+                    //     setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,RIGHT);
+                    //     setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,LEFT);
+                    // }
                     TMR1 = 0;
                     stopCount++;
                 }
                 break;
             case DRIVE_FORWARD:
-                setMotorSpeed(countsPerDegreesPerSecond(1240),FORWARD,LEFT);
-                setMotorSpeed(countsPerDegreesPerSecond(1240),FORWARD,RIGHT);
                 if(timer1Done){
+                    timer1Done = 0;
                     nextState = STOPPED;
                 }
                 break;
             case TURN_LEFT_90:
-                setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,LEFT);
-                setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,RIGHT);
                 if(timer1Done){
+                    timer1Done = 0;
                     nextState = STOPPED;
                 }
                 break;
             case TURN_LEFT_180:
-                setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,LEFT);
-                setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,RIGHT);
                 if(timer1Done){
+                    timer1Done = 0;
                     nextState = STOPPED;
                 }
                 break;
             case DRIVE_BACKWARD:
-                PR1 = timerCountsPerSecond(1);
-                setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,RIGHT);
-                setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,LEFT);
                 if(timer1Done){
+                    timer1Done = 0;
                     nextState = STOPPED;
                 }
                 break;
         }
-            
     }
 
     return 0;
