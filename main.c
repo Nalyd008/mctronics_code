@@ -171,21 +171,22 @@ int main(){
                 if(timer1Done){
                     timer1Done = 0;
                     static int stopCount = 0;
-                    PR1 = timerCountsPerSecond(.5);
+                    PR1 = timerCountsPerSecond(.25);
                     if(stopCount % 4 == 1){
-                        PR1 = timerCountsPerSecond(.25);
+                        nextState = TURN_LEFT_90;
+                        PR1 = timerCountsPerSecond(.64);
                         setMotorSpeed(countsPerDegreesPerSecond(360),FORWARD,LEFT);
                         setMotorSpeed(countsPerDegreesPerSecond(360),BACKWARD,RIGHT);
-                        nextState = TURN_LEFT_90;
+                        
                     }
                     else if(stopCount % 4 == 3){
-                        PR1 = timerCountsPerSecond(.25);
+                        nextState = TURN_LEFT_180;
+                        PR1 = timerCountsPerSecond(1.29);
                         setMotorSpeed(countsPerDegreesPerSecond(360),FORWARD,LEFT);
                         setMotorSpeed(countsPerDegreesPerSecond(360),BACKWARD,RIGHT);
-                        nextState = TURN_LEFT_180;
                     }
                     else{
-                        PR1 = timerCountsPerSecond(2);
+                        PR1 = timerCountsPerSecond(1.5);
                         setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,LEFT);
                         setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,RIGHT);
                         nextState = DRIVE_FORWARD;
