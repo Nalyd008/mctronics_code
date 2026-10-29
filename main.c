@@ -187,6 +187,37 @@ int main(){
                     stopCount++;
                 }
                 break;
+            case Canyon:
+                OC1R = oscFreq/300;
+                OC1RS = OC1R*.5; // Look straight (angle servo = 90)
+                // configure comparator interrupt
+                OC1R = oscFreq/300;
+                OC1RS = OC1R*0; // Look left (angle servo = 0)
+                if (SHARP >= dist_thresh){
+                    OC1RS = OC1R*.5 // Look straight
+                    // Turn 180
+                    // Clear flag return to normal state
+                    }
+                else{
+                    OC1RS = OC1R*.5 // Look straight
+                    // Turn left 90
+                    // Clear flag return to normal state
+                }
+                // Check for line to exit Canyon state
+                if (QRD1 == HIGH){
+                    OC1R = oscFreq/300;
+                    OC1RS = OC1R*0; // Look left (angle servo = 0)
+                    if (SHARP >= dist_thresh){
+                        //Turn Right 90
+                        nextState = LineFollowing;
+                    }
+                    else{
+                        //Turn Left 90
+                        nextState = LineFollowing;
+                    }
+                    
+                }
+                break;
             case DRIVE_FORWARD:
                 setMotorSpeed(countsPerDegreesPerSecond(1240),FORWARD,LEFT);
                 setMotorSpeed(countsPerDegreesPerSecond(1240),FORWARD,RIGHT);
