@@ -17,6 +17,7 @@
 #define RIGHT 1
 
 unsigned char timer1Done = 0;
+unsigned char timer2Done = 0;
 
 long double kp = 1;
 
@@ -26,16 +27,41 @@ int timerPrescaler;
 int microSteps = 4;
 int FULL_STEPS_PER_REVOLUTION = 200;
 
+// enum ROBOT_STATE{
+//     STOPPED,
+//     DRIVE_FORWARD,
+//     TURN_LEFT_90,
+//     TURN_LEFT_180,
+//     DRIVE_BACKWARD
+// };
 enum ROBOT_STATE{
     STOPPED,
-    DRIVE_FORWARD,
-    TURN_LEFT_90,
-    TURN_LEFT_180,
-    DRIVE_BACKWARD
+    FOLLOW_LINE
 };
+
+enum LINE_FOLLOW_STATES{
+    MIDDLE_LIT,
+    LEFT_LIT,
+    RIGHT_LIT,
+    LEFT_2_LIT,
+    RIGHT_2_LIT,
+    NONE_LIT
+}
+
 
 enum ROBOT_STATE currentState = STOPPED;
 enum ROBOT_STATE nextState = STOPPED;
+// INTERRUPTS
+void _ISR _T1Interrupt(void){
+    _T1IF = 0;
+    timer1Done = 1;
+}
+void _ISR _T2Interrupt(void){
+    _T2IF = 0;
+    timer2Done = 1;
+}
+
+// HELPER FUNCTIONS
 int countsPerRevolutionPerSecond(double revolutionsPerSecond){
     int clockCounts = (oscFreq / oscDiv) / (FULL_STEPS_PER_REVOLUTION * microSteps * revolutionsPerSecond);
     return clockCounts; 
@@ -107,6 +133,14 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
     }
     
 }
+
+
+// SETUP FUNCTIONS
+void oscSetup(){
+    oscFreq = 8000000;
+    _RCDIV = 0b001; // Postscaler = 2
+    oscDiv = 4;
+}
 void clearRegisters(){
     ANSA = 0;
     ANSB = 0;
@@ -121,12 +155,8 @@ void clearRegisters(){
     OC3CON1 = 0;
     OC3CON2 = 0;
 }
-void _ISR _T1Interrupt(void){
-    _T1IF = 0;
-    timer1Done = 1;
-}
+
 void timerSetup(){
-   
     T1CONbits.TCS = 0; // Select internal clock (Osc/2)
 
     T1CONbits.TCKPS = 0b11; // Prescale value 1:256 ~ 4s with no Postscale
@@ -134,6 +164,13 @@ void timerSetup(){
     PR1 = timerCountsPerSecond(4);
 
     T1CONbits.TON = 1; // Turn on timer 1
+
+    T2CONbits.TCS = 0; // Select internal clock (Osc/2)
+
+    T2CONbits.TCKPS = 0b11; // Prescale value 1:256 ~ 4s with no Postscale
+    PR2 = timerCountsPerSecond(.1);
+
+    T2CONbits.TON = 1; // Turn on timer 1
 }
 void pwmSetup(){
     OC2CON1bits.OCTSEL = 0b111; // System clock
@@ -154,78 +191,108 @@ void interruptSetup(){
     _T1IE = 1;
 }
 int main(){
-    oscFreq = 8000000;
-    _RCDIV = 0b001; // Postscaler = 2
-    oscDiv = 4;
-
+    unsigned char notFinished = TRUE;
+    enum ROBOT_STATE robotState = FOLLOW_LINE;
+    enum LINE_FOLLOW_STATES lineFollowState = NONE_LIT;
+    
+    oscSetup();
     clearRegisters();
     pwmSetup();
     timerSetup();
     interruptSetup();
-    while(1) {
-        currentState = nextState;
-        switch(currentState){
-            case STOPPED:
-                setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,LEFT);
-                setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,RIGHT);
-                if(timer1Done){
-                    timer1Done = 0;
-                    static int stopCount = 0;
-                    PR1 = timerCountsPerSecond(.25);
-                    if(stopCount % 4 == 1){
-                        nextState = TURN_LEFT_90;
-                        PR1 = timerCountsPerSecond(.64);
-                        setMotorSpeed(countsPerDegreesPerSecond(360),FORWARD,LEFT);
-                        setMotorSpeed(countsPerDegreesPerSecond(360),BACKWARD,RIGHT);
+    // while(1) {
+    //     currentState = nextState;
+    //     switch(currentState){
+    //         case STOPPED:
+    //             setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,LEFT);
+    //             setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,RIGHT);
+    //             if(timer1Done){
+    //                 timer1Done = 0;
+    //                 static int stopCount = 0;
+    //                 PR1 = timerCountsPerSecond(.25);
+    //                 if(stopCount % 4 == 1){
+    //                     nextState = TURN_LEFT_90;
+    //                     PR1 = timerCountsPerSecond(.64);
+    //                     setMotorSpeed(countsPerDegreesPerSecond(360),FORWARD,LEFT);
+    //                     setMotorSpeed(countsPerDegreesPerSecond(360),BACKWARD,RIGHT);
                         
-                    }
-                    else if(stopCount % 4 == 3){
-                        nextState = TURN_LEFT_180;
-                        PR1 = timerCountsPerSecond(1.29);
-                        setMotorSpeed(countsPerDegreesPerSecond(360),FORWARD,LEFT);
-                        setMotorSpeed(countsPerDegreesPerSecond(360),BACKWARD,RIGHT);
-                    }
-                    else{
-                        PR1 = timerCountsPerSecond(1.5);
-                        setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,LEFT);
-                        setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,RIGHT);
-                        nextState = DRIVE_FORWARD;
-                    }
-                    // else{
-                    //     PR1 = timerCountsPerSecond(1);
-                    //     setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,RIGHT);
-                    //     setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,LEFT);
-                    // }
-                    TMR1 = 0;
-                    stopCount++;
-                }
-                break;
-            case DRIVE_FORWARD:
-                if(timer1Done){
-                    timer1Done = 0;
-                    nextState = STOPPED;
-                }
-                break;
-            case TURN_LEFT_90:
-                if(timer1Done){
-                    timer1Done = 0;
-                    nextState = STOPPED;
-                }
-                break;
-            case TURN_LEFT_180:
-                if(timer1Done){
-                    timer1Done = 0;
-                    nextState = STOPPED;
-                }
-                break;
-            case DRIVE_BACKWARD:
-                if(timer1Done){
-                    timer1Done = 0;
-                    nextState = STOPPED;
+    //                 }
+    //                 else if(stopCount % 4 == 3){
+    //                     nextState = TURN_LEFT_180;
+    //                     PR1 = timerCountsPerSecond(1.29);
+    //                     setMotorSpeed(countsPerDegreesPerSecond(360),FORWARD,LEFT);
+    //                     setMotorSpeed(countsPerDegreesPerSecond(360),BACKWARD,RIGHT);
+    //                 }
+    //                 else{
+    //                     PR1 = timerCountsPerSecond(1.5);
+    //                     setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,LEFT);
+    //                     setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,RIGHT);
+    //                     nextState = DRIVE_FORWARD;
+    //                 }
+    //                 // else{
+    //                 //     PR1 = timerCountsPerSecond(1);
+    //                 //     setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,RIGHT);
+    //                 //     setMotorSpeed(countsPerDegreesPerSecond(720),BACKWARD,LEFT);
+    //                 // }
+    //                 TMR1 = 0;
+    //                 stopCount++;
+    //             }
+    //             break;
+    //         case DRIVE_FORWARD:
+    //             if(timer1Done){
+    //                 timer1Done = 0;
+    //                 nextState = STOPPED;
+    //             }
+    //             break;
+    //         case TURN_LEFT_90:
+    //             if(timer1Done){
+    //                 timer1Done = 0;
+    //                 nextState = STOPPED;
+    //             }
+    //             break;
+    //         case TURN_LEFT_180:
+    //             if(timer1Done){
+    //                 timer1Done = 0;
+    //                 nextState = STOPPED;
+    //             }
+    //             break;
+    //         case DRIVE_BACKWARD:
+    //             if(timer1Done){
+    //                 timer1Done = 0;
+    //                 nextState = STOPPED;
+    //             }
+    //             break;
+    //     }
+    // }
+    while(notFinished){
+        switch(robotState){
+            case FOLLOW_LINE:
+                switch(lineFollowState){
+                    case NONE_LIT:
+                        if(1==1){ //Check if 1 light is lit
+                            // set specific motor to default turn speed (set both motors to go forward but 1 goes a little faster)
+                            // set state to correct state based on lights that are on
+                            // potentially start timer to let us know how long we've been in the next state for PID?
+                        }
+                        break;
+                    case MIDDLE_LIT:
+                        break;
+                    case LEFT_LIT:
+
+                        break;
+                    case RIGHT_LIT:
+
+                        break;
+                    case LEFT_2_LIT:
+
+                        break;
+                    case RIGHT_2_LIT:
+
+                        break;
+
                 }
                 break;
         }
     }
-
     return 0;
 }
