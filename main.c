@@ -42,10 +42,19 @@ enum ROBOT_STATE{
 enum ROBOT_STATE lastState = STOPPED;
 enum ROBOT_STATE currentState = STOPPED;
 enum ROBOT_STATE nextState = STOPPED;
+
+unsigned char stopMotors = FALSE;
+
 // INTERRUPTS
 void _ISR _T1Interrupt(void){
     _T1IF = 0;
     timer1Done = 1;
+
+    if(stopMotors){
+        setMotorSpeed(0,FORWARD,LEFT);
+        setMotorSpeed(0,BACKWARD,RIGHT);
+        stopMotors = FALSE;
+    }
 }
 void _ISR _T2Interrupt(void){
     _T2IF = 0;
@@ -53,6 +62,25 @@ void _ISR _T2Interrupt(void){
 }
 
 // HELPER FUNCTIONS
+void lineFollow(){
+    double leftLight = (ADC1BUF13 / 4096.);
+    double middleLight = (ADC1BUF14 / 4096.);
+    double rightLight = (ADC1BUF4 / 4096.);
+    // light goes high on black, low on white
+    int leftSpeed = 720 - (rightLight * 240) - ((rightLight * middleLight) * 240) + (leftLight * middleLight * 0);
+    int rightSpeed = 720 - (leftLight * 240) - ((leftLight * middleLight) * 240) + (rightLight * middleLight * 0);
+
+    setMotorSpeed(countsPerDegreesPerSecond(leftSpeed),FORWARD,LEFT);
+    setMotorSpeed(countsPerDegreesPerSecond(rightSpeed),FORWARD,RIGHT);
+}
+void turn90Degrees(int direction){
+    PR1 = 2;
+    int counts = countsPerRevolutionPerSecond(2);
+
+    setMotorSpeed(counts,FORWARD ^ direction,LEFT);
+    setMotorSpeed(counts,BACKWARD ^ direction,RIGHT);
+    stopMotors = TRUE;
+}
 int countsPerRevolutionPerSecond(double revolutionsPerSecond){
     int clockCounts = (oscFreq / oscDiv) / (FULL_STEPS_PER_REVOLUTION * microSteps * revolutionsPerSecond);
     return clockCounts; 
@@ -144,7 +172,6 @@ void clearRegisters(){
     OC3CON1 = 0;
     OC3CON2 = 0;
 }
-
 void timerSetup(){
     T1CONbits.TCS = 0; // Select internal clock (Osc/2)
 
@@ -229,21 +256,10 @@ void pinSetup(){
     _ANSA2 = 1;
     _ANSA3 = 1;
 }
-
-void lineFollow(){
-    double leftLight = (ADC1BUF13 / 4096.);
-    double middleLight = (ADC1BUF14 / 4096.);
-    double rightLight = (ADC1BUF4 / 4096.);
-
-    int leftSpeed = 840 - (rightLight * 480) - ((rightLight * middleLight)*360) + (leftLight * 540);
-    int rightSpeed = 840 - (leftLight * 480) - ((leftLight * middleLight)*360) + (leftLight * 540);
-
-    setMotorSpeed(countsPerDegreesPerSecond(leftSpeed),FORWARD,LEFT);
-    setMotorSpeed(countsPerDegreesPerSecond(rightSpeed),FORWARD,RIGHT);
-}
 int main(){
     unsigned char notFinished = TRUE;    
     currentState = FOLLOW_LINE;
+
     oscSetup();
     clearRegisters();
     pwmSetup();
@@ -251,8 +267,6 @@ int main(){
     interruptSetup();
     configADC();
     pinSetup();
-    
-
 
     while(notFinished){
         switch(currentState){
