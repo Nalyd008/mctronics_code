@@ -49,12 +49,6 @@ unsigned char stopMotors = FALSE;
 void _ISR _T1Interrupt(void){
     _T1IF = 0;
     timer1Done = 1;
-
-    if(stopMotors){
-        setMotorSpeed(0,FORWARD,LEFT);
-        setMotorSpeed(0,BACKWARD,RIGHT);
-        stopMotors = FALSE;
-    }
 }
 void _ISR _T2Interrupt(void){
     _T2IF = 0;
