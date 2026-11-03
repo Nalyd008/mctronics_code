@@ -56,25 +56,6 @@ void _ISR _T2Interrupt(void){
 }
 
 // HELPER FUNCTIONS
-void lineFollow(){
-    double leftLight = (ADC1BUF13 / 4096.);
-    double middleLight = (ADC1BUF14 / 4096.);
-    double rightLight = (ADC1BUF4 / 4096.);
-    // light goes high on black, low on white
-    int leftSpeed = 720 - (rightLight * 240) - ((rightLight * middleLight) * 240) + (leftLight * middleLight * 0);
-    int rightSpeed = 720 - (leftLight * 240) - ((leftLight * middleLight) * 240) + (rightLight * middleLight * 0);
-
-    setMotorSpeed(countsPerDegreesPerSecond(leftSpeed),FORWARD,LEFT);
-    setMotorSpeed(countsPerDegreesPerSecond(rightSpeed),FORWARD,RIGHT);
-}
-void turn90Degrees(int direction){
-    PR1 = 2;
-    int counts = countsPerRevolutionPerSecond(2);
-
-    setMotorSpeed(counts,FORWARD ^ direction,LEFT);
-    setMotorSpeed(counts,BACKWARD ^ direction,RIGHT);
-    stopMotors = TRUE;
-}
 int countsPerRevolutionPerSecond(double revolutionsPerSecond){
     int clockCounts = (oscFreq / oscDiv) / (FULL_STEPS_PER_REVOLUTION * microSteps * revolutionsPerSecond);
     return clockCounts; 
@@ -145,6 +126,25 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
          // reverses the right so it will be in the same direction as the left
     }
     
+}
+void lineFollow(){
+    double leftLight = (ADC1BUF13 / 4096.);
+    double middleLight = (ADC1BUF14 / 4096.);
+    double rightLight = (ADC1BUF4 / 4096.);
+    // light goes high on black, low on white
+    int leftSpeed = 720 - (rightLight * 240) - ((rightLight * middleLight) * 240) + (leftLight * middleLight * 0);
+    int rightSpeed = 720 - (leftLight * 240) - ((leftLight * middleLight) * 240) + (rightLight * middleLight * 0);
+    
+    setMotorSpeed(countsPerDegreesPerSecond(leftSpeed),FORWARD,LEFT);
+    setMotorSpeed(countsPerDegreesPerSecond(rightSpeed),FORWARD,RIGHT);
+}
+void turn90Degrees(int direction){
+    PR1 = 2;
+    int counts = countsPerRevolutionPerSecond(2);
+
+    setMotorSpeed(counts,FORWARD ^ direction,LEFT);
+    setMotorSpeed(counts,BACKWARD ^ direction,RIGHT);
+    stopMotors = TRUE;
 }
 // SETUP FUNCTIONS
 void oscSetup(){
