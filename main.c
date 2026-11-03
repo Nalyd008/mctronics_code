@@ -128,12 +128,18 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
     
 }
 void lineFollow(){
-    double leftLight = (ADC1BUF13 / 4096.);
-    double middleLight = (ADC1BUF14 / 4096.);
-    double rightLight = (ADC1BUF4 / 4096.);
+    double leftLight = (ADC1BUF4 / 4096.);
+    double middleLight = (ADC1BUF13 / 4096.);
+    double rightLight = (ADC1BUF12 / 4096.);
     // light goes high on black, low on white
-    int leftSpeed = 720 - (rightLight * 240) - ((rightLight * middleLight) * 240) + (leftLight * middleLight * 0);
-    int rightSpeed = 720 - (leftLight * 240) - ((leftLight * middleLight) * 240) + (rightLight * middleLight * 0);
+    int leftSpeed = 800 - (rightLight * 600) - ((rightLight * middleLight) * 1500) + (leftLight * middleLight * 1500);
+    int rightSpeed = 800 - (leftLight * 600) - ((leftLight * middleLight) * 1500) + (rightLight * middleLight * 1500);
+    if(leftSpeed < 0){
+        leftSpeed = 0;
+    }
+    if(rightSpeed < 0){
+        rightSpeed = 0;
+    }
     
     setMotorSpeed(countsPerDegreesPerSecond(leftSpeed),FORWARD,LEFT);
     setMotorSpeed(countsPerDegreesPerSecond(rightSpeed),FORWARD,RIGHT);
@@ -149,8 +155,8 @@ void turn90Degrees(int direction){
 // SETUP FUNCTIONS
 void oscSetup(){
     oscFreq = 8000000;
-    _RCDIV = 0b001; // Postscaler = 2
-    oscDiv = 4;
+    _RCDIV = 0b000; // Postscaler = 2
+    oscDiv = 2;
 }
 void clearRegisters(){
     ANSA = 0;
@@ -235,7 +241,7 @@ void configADC(void)
     // _CH0NA = 0;   // AD1CHS<7:5> -- Use VDD as negative input
     // _CH0SA = 0;  // AD1CHS<4:0> -- Use AN0 as positive input
     // AD1CSSL register
-    AD1CSSL = 0b0110000000010000;  // AD1CSSL<15:0> -- Skip all channels on 
+    AD1CSSL = 0b0011000000010000;  // AD1CSSL<15:0> -- Skip all channels on 
                   // input scan -- see the CSCNA bits in
                   // AD1CON2
     _ADON = 1;    // AD1CON1<15> -- Turn on A/D
@@ -244,11 +250,11 @@ void configADC(void)
 void pinSetup(){
     _TRISB2 = 1;
     _TRISA2 = 1;
-    _TRISA3 = 1;
+    _TRISB12 = 1;
 
     _ANSB2 = 1;
     _ANSA2 = 1;
-    _ANSA3 = 1;
+    _ANSB12 = 1;
 }
 int main(){
     unsigned char notFinished = TRUE;    
