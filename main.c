@@ -16,6 +16,9 @@
 #define LEFT 0
 #define RIGHT 1
 
+#define LEFT_LIGHT AN4
+
+
 unsigned char timer1Done = 0;
 unsigned char timer2Done = 0;
 
@@ -27,13 +30,6 @@ int timerPrescaler;
 int microSteps = 4;
 int FULL_STEPS_PER_REVOLUTION = 200;
 
-// enum ROBOT_STATE{
-//     STOPPED,
-//     DRIVE_FORWARD,
-//     TURN_LEFT_90,
-//     TURN_LEFT_180,
-//     DRIVE_BACKWARD
-// };
 enum ROBOT_STATE{
     STOPPED,
     FOLLOW_LINE
@@ -46,7 +42,7 @@ enum LINE_FOLLOW_STATES{
     LEFT_2_LIT,
     RIGHT_2_LIT,
     NONE_LIT
-}
+};
 
 
 enum ROBOT_STATE currentState = STOPPED;
@@ -116,7 +112,7 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
         // int speed = abs(currentRightSpeed);
         OC3RS = speed;
         OC3R = (speed + 1) * dutyCycle;
-        _LATB2 = (direction ^ 1);
+        _LATA4 = (direction ^ 1);
     }
     else{ 
         // Proportional Controller
@@ -128,13 +124,11 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
 
         OC2RS = speed;
         OC2R = (speed+1) * dutyCycle;
-        _LATA1 = direction;
+        _LATB4 = direction;
          // reverses the right so it will be in the same direction as the left
     }
     
 }
-
-
 // SETUP FUNCTIONS
 void oscSetup(){
     oscFreq = 8000000;
@@ -190,6 +184,76 @@ void interruptSetup(){
     _T1IF = 0;
     _T1IE = 1;
 }
+void configADC(void)
+{
+    _ADON = 0;    // AD1CON1<15> -- Turn off A/D during config
+
+    // AD1CON1 register
+    _ADSIDL = 0;  // AD1CON1<13> -- A/D continues in idle mode
+    _MODE12 = 1;  // AD1CON1<10> -- 12-bit A/D operation
+    _FORM = 0;    // AD1CON1<9:8> -- Unsigned integer output
+    _SSRC = 7;    // AD1CON1<7:4> -- Auto conversion (internal counter)
+    _ASAM = 1;    // AD1CON1<2> -- Auto sampling
+
+    // AD1CON2 register
+    _PVCFG = 0;   // AD1CON2<15:14> -- Use VDD as positive
+                  // ref voltage
+    _NVCFG = 0;   // AD1CON2<13> -- Use VSS as negative
+                  // ref voltage
+    _BUFREGEN = 1;// AD1CON2<11> -- Result appears in buffer
+                  // location corresponding to channel
+    _CSCNA = 1;   // AD1CON2<10> -- Does not scan inputs
+                  // specified in AD1CSSx registers (instead
+                  // uses channels specified by CH0SA bits in
+                  // AD1CHS register) -- Selecting '0' here
+                  // probably makes writing to the AD1CSSL
+                  // register unnecessary.
+    _SMPI = 2;    // AD1CON2<6:2> -- Each conversion sent to 
+                  // buffer
+    _ALTS = 0;    // AD1CON2<0> -- Sample MUXA only
+
+    // _CN2PDE = 1; // Do we need this?
+
+    // AD1CON3 register
+    _ADRC = 0;    // AD1CON3<15> -- Use system clock
+    _SAMC = 0;    // AD1CON3<12:8> -- Auto sample every A/D
+                  // period TAD
+    _ADCS = 0b00000011;    // AD1CON3<7:0> -- TAD needs to be at least 750 ns. Thus, _ADCS = 0b00000010 will give us the fastest AD clock given a 4 MHz system clock.
+
+    // AD1CHS register
+    // _CH0NA = 0;   // AD1CHS<7:5> -- Use VDD as negative input
+    // _CH0SA = 0;  // AD1CHS<4:0> -- Use AN0 as positive input
+
+    // AD1CSSL register
+
+    AD1CSSL = 0b0110000000010000;  // AD1CSSL<15:0> -- Skip all channels on 
+                  // input scan -- see the CSCNA bits in
+                  // AD1CON2
+
+    _ADON = 1;    // AD1CON1<15> -- Turn on A/D
+
+}
+void pinSetup(){
+    _TRISB2 = 1;
+    _TRISA2 = 1;
+    _TRISA3 = 1;
+
+    _ANSB2 = 1;
+    _ANSA2 = 1;
+    _ANSA3 = 1;
+}
+// void moveMotors(){
+//     double leftLight = ADC1BUF4 / 3500;
+//     double middleLight = ADC1BUF14 / 3500;
+//     double rightLight = ADC1BUF13 / 3500;
+
+//     int leftspeed = 720 - (rightLight * 240) - ((rightLight + middleLight)*120);
+//     int rightspeed = 720 - (leftLight * 240) - ((leftLight + middleLight)*120);
+
+
+//     setMotorSpeed(countsPerDegreesPerSecond(leftspeed),FORWARD,LEFT);
+//     setMotorSpeed(countsPerDegreesPerSecond(rightspeed),FORWARD,RIGHT);
+// }
 int main(){
     unsigned char notFinished = TRUE;
     enum ROBOT_STATE robotState = FOLLOW_LINE;
@@ -200,6 +264,8 @@ int main(){
     pwmSetup();
     timerSetup();
     interruptSetup();
+    configADC();
+    pinSetup();
     // while(1) {
     //     currentState = nextState;
     //     switch(currentState){
@@ -264,35 +330,68 @@ int main(){
     //             break;
     //     }
     // }
+
+
     while(notFinished){
-        switch(robotState){
-            case FOLLOW_LINE:
-                switch(lineFollowState){
-                    case NONE_LIT:
-                        if(1==1){ //Check if 1 light is lit
-                            // set specific motor to default turn speed (set both motors to go forward but 1 goes a little faster)
-                            // set state to correct state based on lights that are on
-                            // potentially start timer to let us know how long we've been in the next state for PID?
-                        }
-                        break;
-                    case MIDDLE_LIT:
-                        break;
-                    case LEFT_LIT:
+        double leftLight = (ADC1BUF13 / 4096.);
+        double middleLight = (ADC1BUF14 / 4096.);
+        double rightLight = (ADC1BUF4 / 4096.);
 
-                        break;
-                    case RIGHT_LIT:
+        int leftSpeed = 840 - (rightLight * 480) - ((rightLight + middleLight)*360) + (leftLight * 540);
+        int rightSpeed = 840 - (leftLight * 480) - ((leftLight + middleLight)*360) + (leftLight * 540);
 
-                        break;
-                    case LEFT_2_LIT:
+        setMotorSpeed(countsPerDegreesPerSecond(leftSpeed),FORWARD,LEFT);
+        setMotorSpeed(countsPerDegreesPerSecond(rightSpeed),FORWARD,RIGHT);
+        // switch(robotState){
+        //     case STOPPED:
+        //         break;
+        //     case FOLLOW_LINE:
+                
+        //         //QRD goes low when on light
+        //         break;
+        //         // switch(lineFollowState){
+                    
+        //         //     // Check if 1 light is lit
+        //         //     // set specific motor to default turn speed (set both motors to go forward but 1 goes a little faster)
+        //         //     // set state to correct state based on lights that are on
+        //         //     // potentially start timer to let us know how long we've been in the next state for PID?
+        //         //     case NONE_LIT:
+                        
+        //         //         if(ADC1BUF4 > 3000){ 
+        //         //             setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,LEFT);
+        //         //         }
+        //         //         else{
+        //         //             setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,LEFT);
+        //         //         }
+        //         //         if(ADC1BUF13 > 3000){
+        //         //             setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,RIGHT);
+        //         //         }
+        //         //         else{
+        //         //             setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,RIGHT);
 
-                        break;
-                    case RIGHT_2_LIT:
+        //         //         }
+        //         //         break;
+        //         //     case MIDDLE_LIT:
+        //         //         setMotorSpeed(countsPerDegreesPerSecond(360),FORWARD,LEFT);
+        //         //         setMotorSpeed(countsPerDegreesPerSecond(360),FORWARD,RIGHT);
+        //         //         lineFollowState = NONE_LIT;
+        //         //         break;
+        //         //     case LEFT_LIT:
 
-                        break;
+        //         //         break;
+        //         //     case RIGHT_LIT:
 
-                }
-                break;
-        }
+        //         //         break;
+        //         //     case LEFT_2_LIT:
+
+        //         //         break;
+        //         //     case RIGHT_2_LIT:
+
+        //         //         break;
+
+        //         // }
+        //         break;
+        // }
     }
     return 0;
 }

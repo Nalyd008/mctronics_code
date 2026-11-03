@@ -6,6 +6,7 @@
             "id": "conf1",
             "device": "PIC24F16KA301",
             "imagePath": "./out/McTronics/default.elf",
+            "tool": "Snap",
             "packs": [
                 {
                     "name": "PIC24F-KA-KL-KM_DFP",
