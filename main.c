@@ -29,7 +29,7 @@ int oscDiv;
 int timerPrescaler;
 int microSteps = 4;
 int FULL_STEPS_PER_REVOLUTION = 200;
-
+double dist_thresh = 2.2;
 enum ROBOT_STATE{
     STOPPED,
     FOLLOW_LINE,
@@ -228,7 +228,7 @@ void configADC(void)
                   // AD1CHS register) -- Selecting '0' here
                   // probably makes writing to the AD1CSSL
                   // register unnecessary.
-    _SMPI = 2;    // AD1CON2<6:2> -- Each conversion sent to 
+    _SMPI = 3;    // AD1CON2<6:2> -- Each conversion sent to 
                   // buffer
     _ALTS = 0;    // AD1CON2<0> -- Sample MUXA only
     // _CN2PDE = 1; // Do we need this?
@@ -241,7 +241,7 @@ void configADC(void)
     // _CH0NA = 0;   // AD1CHS<7:5> -- Use VDD as negative input
     // _CH0SA = 0;  // AD1CHS<4:0> -- Use AN0 as positive input
     // AD1CSSL register
-    AD1CSSL = 0b0011000000010000;  // AD1CSSL<15:0> -- Skip all channels on 
+    AD1CSSL = 0b0011001000010000;  // AD1CSSL<15:0> -- Skip all channels on 
                   // input scan -- see the CSCNA bits in
                   // AD1CON2
     _ADON = 1;    // AD1CON1<15> -- Turn on A/D
@@ -251,14 +251,16 @@ void pinSetup(){
     _TRISB2 = 1;
     _TRISA2 = 1;
     _TRISB12 = 1;
+    _TRISB15 = 1;
 
     _ANSB2 = 1;
     _ANSA2 = 1;
     _ANSB12 = 1;
+    _ANSB15 = 1
 }
 int main(){
     unsigned char notFinished = TRUE;    
-    currentState = FOLLOW_LINE;
+    currentState = NAVIGATE_CANYON;
 
     oscSetup();
     clearRegisters();
@@ -276,6 +278,54 @@ int main(){
             case (STOPPED):
                 break;
             case (NAVIGATE_CANYON):
+                double distance = (ADC1BUF9 / 4096.); // Sharp sensor voltage
+                volatile unsigned long i; // for delays
+                OC1R = oscFreq/300;
+                OC1RS = OC1R*.5; // Look straight (angle servo = 90)
+                // Start driving forward
+                setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,LEFT);
+                setMotorSpeed(countsPerDegreesPerSecond(720),FORWARD,RIGHT);
+                if (distance >= dist_thresh){
+                    setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,LEFT);
+                    setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,RIGHT);
+                    OC1R = oscFreq/300;
+                    OC1RS = OC1R*0; // Look left (angle servo = 0)
+                    i=0;
+                    while (i < 1000) i++; // Delay and give time for servo to settle
+                    distance = (ADC1BUF9 / 4096.);
+                    if (distance >= dist_thresh){
+                        OC1RS = OC1R*.5; // Look straight
+                        turn90Degrees(LEFT);
+                        i=0;
+                        while (i < 10000) i++; // Delay and give time for turn to finish
+                        turn90Degrees(LEFT);
+                        }
+                    else{
+                        OC1RS = OC1R*.5; // Look straight
+                        turn90Degrees(LEFT);
+                    }
+                }
+                    // Check for line to exit Canyon state
+                if (QRD1 == HIGH){
+                    OC1R = oscFreq/300;
+                    OC1RS = OC1R*0; // Look left (angle servo = 0)
+                    i=0;
+                    while (i < 1000) i++; // Delay and give time for turn to finish
+                    distance = (ADC1BUF9 / 4096.);
+                    if (distance >= dist_thresh){
+                        turn90Degrees(RIGHT);
+                        i=0;
+                        while (i < 10000) i++;
+                        currentState = FOLLOW_LINE;
+                    }
+                    else{
+                        turn90Degrees(LEFT);
+                        i=0;
+                        while (i < 10000) i++;
+                        currentState = FOLLOW_LINE;
+                    }
+                    
+                }
                 break;
             case (COLLECT_BALL):
                 break;
