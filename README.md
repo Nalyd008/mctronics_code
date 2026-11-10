@@ -38,3 +38,10 @@ Diameter: 3 1/2
 1 full revolution of one wheel turns robot 70 degrees
 1 full revelution of two wheels turns robot 140 degrees (one forward one backward)
 1 full revolution of the motor = 200 full steps 
+
+
+QRD FOR BALL DROPPER
+GREY - PIN 1
+BLACK - PIN 2
+WHITE - PIN 3
+PURPLE - PIN 4
