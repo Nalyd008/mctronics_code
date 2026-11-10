@@ -6,6 +6,7 @@
  */
 
 #include <stdlib.h>
+#include <math.h>
 #include <xc.h>
 #pragma config FNOSC = FRCDIV // 8MHz Fast RC with Postscaler
 
@@ -43,7 +44,8 @@ enum ROBOT_STATE lastState = STOPPED;
 enum ROBOT_STATE currentState = STOPPED;
 enum ROBOT_STATE nextState = STOPPED;
 
-unsigned char stopMotors = FALSE;
+unsigned char stopMotors = FALSE; 
+unsigned char canyonDone = FALSE;
 
 // INTERRUPTS
 void _ISR _T1Interrupt(void){
@@ -127,10 +129,37 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
     }
     
 }
+// void lineFollowPID(){
+//     double leftLight = (ADC1BUF4 / 4096.);
+//     double middleLight = (ADC1BUF13 / 4096.);
+//     double rightLight = (ADC1BUF12 / 4096.);
+    
+//     static error = 0;
+// }
+void navigateCanyon(){
+    double rightSenseVoltage = (ADC1BUF9)/4096. * 3.3; // adjust these values for differences in robots
+    double leftSenseVoltage = (ADC1BUF11)/4096. * 3.3;
+    double error = leftSenseVoltage - rightSenseVoltage;
+
+
+    int kp = 400;
+    int leftSpeed = 420 - (error * kp);
+    int rightSpeed = 420 + (error * kp);
+    
+    if (rightSpeed < 240){
+        rightSpeed = 240;
+    }
+    if(leftSpeed < 240){
+        leftSpeed = 240;
+    }
+    setMotorSpeed(countsPerDegreesPerSecond(leftSpeed),FORWARD,LEFT);
+    setMotorSpeed(countsPerDegreesPerSecond(rightSpeed),FORWARD,RIGHT);
+}
 void lineFollow(){
     double leftLight = (ADC1BUF4 / 4096.);
     double middleLight = (ADC1BUF13 / 4096.);
     double rightLight = (ADC1BUF12 / 4096.);
+
     // light goes high on black, low on white
     int leftSpeed = 800 - (rightLight * 600) - ((rightLight * middleLight) * 1500) + (leftLight * middleLight * 1500);
     int rightSpeed = 800 - (leftLight * 600) - ((leftLight * middleLight) * 1500) + (rightLight * middleLight * 1500);
@@ -144,9 +173,26 @@ void lineFollow(){
     setMotorSpeed(countsPerDegreesPerSecond(leftSpeed),FORWARD,LEFT);
     setMotorSpeed(countsPerDegreesPerSecond(rightSpeed),FORWARD,RIGHT);
 }
+void checkForLine(){
+    double leftLight = (ADC1BUF4 / 4096.);
+    double middleLight = (ADC1BUF13 / 4096.);
+    double rightLight = (ADC1BUF12 / 4096.); 
+    if(leftLight <.5 || middleLight < .5 || rightLight < .5){ // adjust value?
+        currentState = FOLLOW_LINE;
+    }
+}
+void checkForCanyon(){
+    double leftLight = (ADC1BUF4 / 4096.);
+    double middleLight = (ADC1BUF13 / 4096.);
+    double rightLight = (ADC1BUF12 / 4096.); 
+    if(leftLight >.4 && middleLight > .4 && rightLight > .4){ // adjust value?
+        currentState = NAVIGATE_CANYON;
+    }
+    
+}
 void turn90Degrees(int direction){
     PR1 = 2;
-    int counts = countsPerRevolutionPerSecond(2);
+    int counts = countsPerDegreesPerSecond(2);
 
     setMotorSpeed(counts,FORWARD ^ direction,LEFT);
     setMotorSpeed(counts,BACKWARD ^ direction,RIGHT);
@@ -228,7 +274,7 @@ void configADC(void)
                   // AD1CHS register) -- Selecting '0' here
                   // probably makes writing to the AD1CSSL
                   // register unnecessary.
-    _SMPI = 2;    // AD1CON2<6:2> -- Each conversion sent to 
+    _SMPI = 4;    // AD1CON2<6:2> -- Each conversion sent to 
                   // buffer
     _ALTS = 0;    // AD1CON2<0> -- Sample MUXA only
     // _CN2PDE = 1; // Do we need this?
@@ -241,7 +287,7 @@ void configADC(void)
     // _CH0NA = 0;   // AD1CHS<7:5> -- Use VDD as negative input
     // _CH0SA = 0;  // AD1CHS<4:0> -- Use AN0 as positive input
     // AD1CSSL register
-    AD1CSSL = 0b0011000000010000;  // AD1CSSL<15:0> -- Skip all channels on 
+    AD1CSSL = 0b0011101000010000;  // AD1CSSL<15:0> -- Skip all channels on 
                   // input scan -- see the CSCNA bits in
                   // AD1CON2
     _ADON = 1;    // AD1CON1<15> -- Turn on A/D
@@ -251,31 +297,42 @@ void pinSetup(){
     _TRISB2 = 1;
     _TRISA2 = 1;
     _TRISB12 = 1;
+    _TRISB15 = 1;
+    _TRISB13 = 1;
+    _TRISA0 = 0;
 
     _ANSB2 = 1;
     _ANSA2 = 1;
     _ANSB12 = 1;
+    _ANSB13 = 1;
+    _ANSB15 = 1;
+    _ANSA0 = 0;
 }
 int main(){
     unsigned char notFinished = TRUE;    
-    currentState = FOLLOW_LINE;
+    currentState = NAVIGATE_CANYON;
 
     oscSetup();
     clearRegisters();
     pwmSetup();
     timerSetup();
     interruptSetup();
-    configADC();
     pinSetup();
+    configADC();
 
-    while(notFinished){
+    while(notFinished){        
         switch(currentState){
             case (FOLLOW_LINE):
+                _LATA0 = 1;
                 lineFollow();
+                checkForCanyon();
                 break;
             case (STOPPED):
                 break;
             case (NAVIGATE_CANYON):
+                _LATA0 = 0;
+                navigateCanyon();
+                checkForLine();
                 break;
             case (COLLECT_BALL):
                 break;
