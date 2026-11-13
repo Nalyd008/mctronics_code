@@ -138,37 +138,39 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
 //     static error = 0;
 // }
 void depositBall(){
-    double QRDcolor = ADC1BUF1/4095.0 * 3.3;
-    unsigned int i = 0; // for delays
-    while(i<1000) i++; //move forward
+    double QRDcolor = ADC1BUF1/4095.0;
+    volatile unsigned long i = 0; // for delays
+    while(i<countsPerSecond(2)) i++;
+  
+    //move forward
     setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,LEFT);
     setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,RIGHT);
-    if(QRDcolor > 2){
-        setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,LEFT);
-        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,RIGHT);
-        i = 0;
-        while(i<500) i++ //finish turn
-        _LATA5 = 1;
-        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,LEFT);
-        setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,RIGHT);
-        i = 0;
-        while(i<500) i++ //finish turn
-        currentState = FOLLOW_LINE;
-    }
-    else{
-        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,LEFT);
-        setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,RIGHT);
-        i = 0;
-        while(i<500) i++ //finish turn
-        _LATA5 = 1;
-        setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,LEFT);
-        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,RIGHT);
-        i = 0;
-        while(i<500) i++ //finish turn
-        currentState = FOLLOW_LINE;
-    
-    }
-    ball = 0;
+//    if(QRDcolor > .5){
+//        //setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,LEFT);
+//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,RIGHT);
+//        i = 0;
+//        while(i<5000) i++; //finish turn
+//        _LATA1 = 1;
+//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,LEFT);
+//        setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,RIGHT);
+//        i = 0;
+//        while(i<5000) i++; //finish turn
+//        currentState = FOLLOW_LINE;
+//    }
+//    else{
+//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,LEFT);
+//        //setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,RIGHT);
+//        i = 0;
+//        while(i<500) i++; //finish turn
+//        _LATA1 = 1;
+//        setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,LEFT);
+//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,RIGHT);
+//        i = 0;
+//        while(i<500) i++; //finish turn
+//        currentState = FOLLOW_LINE;
+//    
+//    }
+//    ball = 0;
 }
 void navigateCanyon(){
     double rightSenseVoltage = (ADC1BUF9)/4096. * 3.3; // adjust these values for differences in robots
@@ -228,8 +230,8 @@ void checkForCanyon(){
 }
 void checkForBox(){
     double middleLight = (ADC1BUF13 / 4096.);
-    double rightSenseVoltage = (ADC1BUF9)/4096. * 3.3; // adjust these values for differences in robots
-    double leftSenseVoltage = (ADC1BUF11)/4096. * 3.3;//
+    double rightSenseVoltage = (ADC1BUF9)/4096.; // adjust these values for differences in robots
+    double leftSenseVoltage = (ADC1BUF11)/4096.;//
     if(middleLight < .4 && rightSenseVoltage > .4 && leftSenseVoltage >.4){ // adjust value?
         currentState = DEPOSIT_BALL;
     }
@@ -371,10 +373,9 @@ int main(){
     while(notFinished){        
         switch(currentState){
             case (FOLLOW_LINE):
-                _LATA0 = 1;
                 lineFollow();
                 checkForCanyon();
-                if(ball = 1){
+                if(ball == 1){
                     checkForBox();
                 }
                 break;
@@ -388,6 +389,8 @@ int main(){
             case (COLLECT_BALL):
                 break;
             case (DEPOSIT_BALL):
+                _LATA0 = 1;
+                depositBall();
                 break;
             case (ADJUST_LASER):
                 break;
