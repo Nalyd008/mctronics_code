@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <math.h>
 #include <xc.h>
 #pragma config FNOSC = FRCDIV // 8MHz Fast RC with Postscaler
 
@@ -20,7 +21,11 @@
 #define LEFT_LIGHT AN4
 
 
+#define LEFT_LIGHT AN4
+
+
 unsigned char timer1Done = 0;
+unsigned char timer2Done = 0;
 unsigned char timer2Done = 0;
 
 long double kp = 1;
@@ -30,6 +35,7 @@ int oscDiv;
 int timerPrescaler;
 int microSteps = 4;
 int FULL_STEPS_PER_REVOLUTION = 200;
+unsigned int ball = 1;
 
 enum ROBOT_STATE{
     STOPPED,
@@ -41,8 +47,24 @@ enum ROBOT_STATE{
 };
 
 enum ROBOT_STATE lastState = STOPPED;
+enum ROBOT_STATE lastState = STOPPED;
 enum ROBOT_STATE currentState = STOPPED;
 enum ROBOT_STATE nextState = STOPPED;
+
+unsigned char stopMotors = FALSE; 
+unsigned char canyonDone = FALSE;
+
+// INTERRUPTS
+void _ISR _T1Interrupt(void){
+    _T1IF = 0;
+    timer1Done = 1;
+}
+void _ISR _T2Interrupt(void){
+    _T2IF = 0;
+    timer2Done = 1;
+}
+
+// HELPER FUNCTIONS
 
 unsigned char stopMotors = FALSE; 
 unsigned char canyonDone = FALSE;
@@ -136,6 +158,75 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
     
 //     static error = 0;
 // }
+void turnForSeconds(double speed, double seconds, unsigned char direction){
+    setMotorSpeed(speed,0,LEFT);
+    setMotorSpeed(speed,1,RIGHT);
+    
+    TMR1 = 0;
+    PR1 = timerCountsPerSecond(seconds);
+    timer1Done = 0;
+    while(!timer1Done);
+
+    setMotorSpeed(0,FORWARD ^ direction,LEFT);
+    setMotorSpeed(0,FORWARD ^ direction,RIGHT);
+}
+void driveForSeconds(double speed, double seconds, unsigned char direction){
+    setMotorSpeed(speed,FORWARD ^ direction,LEFT);
+    setMotorSpeed(speed,FORWARD ^ direction,RIGHT);
+    TMR1 = 0;
+    PR1 = timerCountsPerSecond(seconds);
+    timer1Done = 0;
+    while(!timer1Done);
+
+    setMotorSpeed(0,FORWARD ^ direction,LEFT);
+    setMotorSpeed(0,FORWARD ^ direction,RIGHT);
+}
+void stopForSeconds(double seconds){
+    driveForSeconds(0,seconds,1);
+}
+int checkBallColor(){
+    /*Returns 1 for BLACK, 0 for WHITE*/ 
+    // double QRDcolor = ADC1BUF1/4095.0;
+
+    return 1;
+}
+void depositBall(){
+  
+    //move forward
+    setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,LEFT);
+    setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,RIGHT);
+    driveForSeconds(countsPerDegreesPerSecond(720),2,FORWARD);
+    stopForSeconds(2);
+    turnForSeconds(countsPerDegreesPerSecond(720),2,checkBallColor());
+    stopForSeconds(2);
+
+//    if(QRDcolor > .5){
+//        //setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,LEFT);
+//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,RIGHT);
+//        i = 0;
+//        while(i<5000) i++; //finish turn
+//        _LATA1 = 1;
+//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,LEFT);
+//        setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,RIGHT);
+//        i = 0;
+//        while(i<5000) i++; //finish turn
+//        currentState = FOLLOW_LINE;
+//    }
+//    else{
+//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,LEFT);
+//        //setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,RIGHT);
+//        i = 0;
+//        while(i<500) i++; //finish turn
+//        _LATA1 = 1;
+//        setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,LEFT);
+//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,RIGHT);
+//        i = 0;
+//        while(i<500) i++; //finish turn
+//        currentState = FOLLOW_LINE;
+//    
+//    }
+//    ball = 0;
+}
 void navigateCanyon(){
     double rightSenseVoltage = (ADC1BUF9)/4096. * 3.3; // adjust these values for differences in robots
     double leftSenseVoltage = (ADC1BUF11)/4096. * 3.3;
@@ -143,8 +234,8 @@ void navigateCanyon(){
 
 
     int kp = 400;
-    int leftSpeed = 420 - (error * kp);
-    int rightSpeed = 420 + (error * kp);
+    int leftSpeed = 700 - (error * kp);
+    int rightSpeed = 700 + (error * kp);
     
     if (rightSpeed < 240){
         rightSpeed = 240;
@@ -161,8 +252,8 @@ void lineFollow(){
     double rightLight = (ADC1BUF12 / 4096.);
 
     // light goes high on black, low on white
-    int leftSpeed = 800 - (rightLight * 600) - ((rightLight * middleLight) * 1500) + (leftLight * middleLight * 1500);
-    int rightSpeed = 800 - (leftLight * 600) - ((leftLight * middleLight) * 1500) + (rightLight * middleLight * 1500);
+    int leftSpeed = 600 - (rightLight * 600) - ((rightLight * middleLight) * 1500) + (leftLight * middleLight * 1500);
+    int rightSpeed = 600 - (leftLight * 600) - ((leftLight * middleLight) * 1500) + (rightLight * middleLight * 1500);
     if(leftSpeed < 0){
         leftSpeed = 0;
     }
@@ -176,7 +267,7 @@ void lineFollow(){
 void checkForLine(){
     double leftLight = (ADC1BUF4 / 4096.);
     double middleLight = (ADC1BUF13 / 4096.);
-    double rightLight = (ADC1BUF12 / 4096.); 
+    double rightLight = (ADC1BUF12 / 4096.);
     if(leftLight <.5 || middleLight < .5 || rightLight < .5){ // adjust value?
         currentState = FOLLOW_LINE;
     }
@@ -184,19 +275,22 @@ void checkForLine(){
 void checkForCanyon(){
     double leftLight = (ADC1BUF4 / 4096.);
     double middleLight = (ADC1BUF13 / 4096.);
-    double rightLight = (ADC1BUF12 / 4096.); 
-    if(leftLight >.4 && middleLight > .4 && rightLight > .4){ // adjust value?
+    double rightLight = (ADC1BUF12 / 4096.);
+    double rightSenseVoltage = (ADC1BUF9)/4096. * 3.3; // adjust these values for differences in robots
+    double leftSenseVoltage = (ADC1BUF11)/4096. * 3.3;
+    if(leftLight >.4 && middleLight > .4 && rightLight > .4 && rightSenseVoltage > .4 && leftSenseVoltage >.4){ // adjust value?
         currentState = NAVIGATE_CANYON;
     }
     
 }
-void turn90Degrees(int direction){
-    PR1 = 2;
-    int counts = countsPerDegreesPerSecond(2);
-
-    setMotorSpeed(counts,FORWARD ^ direction,LEFT);
-    setMotorSpeed(counts,BACKWARD ^ direction,RIGHT);
-    stopMotors = TRUE;
+void checkForBox(){
+    double middleLight = (ADC1BUF13 / 4096.);
+    double rightSenseVoltage = (ADC1BUF9)/4096.; // adjust these values for differences in robots
+    double leftSenseVoltage = (ADC1BUF11)/4096.;//
+    if(middleLight < .4 && rightSenseVoltage > .4 && leftSenseVoltage >.4){ // adjust value?
+        currentState = DEPOSIT_BALL;
+    }
+    
 }
 // SETUP FUNCTIONS
 void oscSetup(){
@@ -230,7 +324,7 @@ void timerSetup(){
     T2CONbits.TCS = 0; // Select internal clock (Osc/2)
 
     T2CONbits.TCKPS = 0b11; // Prescale value 1:256 ~ 4s with no Postscale
-    PR2 = timerCountsPerSecond(.1);
+    PR2 = timerCountsPerSecond(4);
 
     T2CONbits.TON = 1; // Turn on timer 1
 }
@@ -310,7 +404,7 @@ void pinSetup(){
 }
 int main(){
     unsigned char notFinished = TRUE;    
-    currentState = NAVIGATE_CANYON;
+    currentState = DEPOSIT_BALL;
 
     oscSetup();
     clearRegisters();
@@ -323,11 +417,11 @@ int main(){
     while(notFinished){        
         switch(currentState){
             case (FOLLOW_LINE):
-                _LATA0 = 1;
                 lineFollow();
                 checkForCanyon();
-                break;
-            case (STOPPED):
+                if(ball == 1){
+                    checkForBox();
+                }
                 break;
             case (NAVIGATE_CANYON):
                 _LATA0 = 0;
@@ -337,6 +431,8 @@ int main(){
             case (COLLECT_BALL):
                 break;
             case (DEPOSIT_BALL):
+                _LATA0 = 1;
+                depositBall();
                 break;
             case (ADJUST_LASER):
                 break;
