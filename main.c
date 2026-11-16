@@ -137,14 +137,48 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
     
 //     static error = 0;
 // }
+void turnForSeconds(double speed, double seconds, unsigned char direction){
+    setMotorSpeed(speed,0,LEFT);
+    setMotorSpeed(speed,1,RIGHT);
+    
+    TMR1 = 0;
+    PR1 = timerCountsPerSecond(seconds);
+    timer1Done = 0;
+    while(!timer1Done);
+
+    setMotorSpeed(0,FORWARD ^ direction,LEFT);
+    setMotorSpeed(0,FORWARD ^ direction,RIGHT);
+}
+void driveForSeconds(double speed, double seconds, unsigned char direction){
+    setMotorSpeed(speed,FORWARD ^ direction,LEFT);
+    setMotorSpeed(speed,FORWARD ^ direction,RIGHT);
+    TMR1 = 0;
+    PR1 = timerCountsPerSecond(seconds);
+    timer1Done = 0;
+    while(!timer1Done);
+
+    setMotorSpeed(0,FORWARD ^ direction,LEFT);
+    setMotorSpeed(0,FORWARD ^ direction,RIGHT);
+}
+void stopForSeconds(double seconds){
+    driveForSeconds(0,seconds,1);
+}
+int checkBallColor(){
+    /*Returns 1 for BLACK, 0 for WHITE*/ 
+    // double QRDcolor = ADC1BUF1/4095.0;
+
+    return 1;
+}
 void depositBall(){
-    double QRDcolor = ADC1BUF1/4095.0;
-    volatile unsigned long i = 0; // for delays
-    while(i<countsPerSecond(2)) i++;
   
     //move forward
     setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,LEFT);
     setMotorSpeed(countsPerDegreesPerSecond(0),FORWARD,RIGHT);
+    driveForSeconds(countsPerDegreesPerSecond(720),2,FORWARD);
+    stopForSeconds(2);
+    turnForSeconds(countsPerDegreesPerSecond(720),2,checkBallColor());
+    stopForSeconds(2);
+
 //    if(QRDcolor > .5){
 //        //setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,LEFT);
 //        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,RIGHT);
@@ -237,14 +271,6 @@ void checkForBox(){
     }
     
 }
-void turn90Degrees(int direction){
-    PR1 = 2;
-    int counts = countsPerDegreesPerSecond(2);
-
-    setMotorSpeed(counts,FORWARD ^ direction,LEFT);
-    setMotorSpeed(counts,BACKWARD ^ direction,RIGHT);
-    stopMotors = TRUE;
-}
 // SETUP FUNCTIONS
 void oscSetup(){
     oscFreq = 8000000;
@@ -277,7 +303,7 @@ void timerSetup(){
     T2CONbits.TCS = 0; // Select internal clock (Osc/2)
 
     T2CONbits.TCKPS = 0b11; // Prescale value 1:256 ~ 4s with no Postscale
-    PR2 = timerCountsPerSecond(.1);
+    PR2 = timerCountsPerSecond(4);
 
     T2CONbits.TON = 1; // Turn on timer 1
 }
@@ -357,10 +383,12 @@ void pinSetup(){
     _ANSB15 = 1;
     _ANSA0 = 0;
     
+
+
 }
 int main(){
     unsigned char notFinished = TRUE;    
-    currentState = NAVIGATE_CANYON;
+    currentState = DEPOSIT_BALL;
 
     oscSetup();
     clearRegisters();
