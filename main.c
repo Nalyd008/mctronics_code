@@ -296,6 +296,27 @@ void checkForBox(){
     }
     
 }
+
+// NEW STUFF FOR PING PONG PICK UP
+
+if(_RA1 == 1) //make sure this is pin 2
+{
+    currentState = PingPongPickUp;
+}
+void PingPongPickUp(){
+    setMotorSpeed(0, FORWARD, LEFT);
+    setMotorSpeed(0, FORWARD, RIGHT);
+    turnForDegrees(540, 90, LEFT);
+    driveForSeconds(7, 360, BACKWARD); //change this
+    stopForSeconds(4); //this too
+    driveForSeconds(7, 360, FORWARD); //also this
+    turnForDegrees(540, 90, RIGHT);
+}
+//tell it to go back to line follow
+//code to read the ping pong ball here
+
+// END NEW STUFF
+
 // SETUP FUNCTIONS
 void oscSetup(){
     oscFreq = 8000000;
