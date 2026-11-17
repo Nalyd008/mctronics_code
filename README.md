@@ -17,9 +17,9 @@ Pin out:
 - PIN 8 - Line following QRD 3 (AN14)
 - PIN 9 - Motor directionality Left (RB4)
 - PIN 10 - Motor directionality Right (RA4)
-- PIN 11 - Solenoid triggering for ball dispenser (RB7)
+- PIN 11 - 
 - PIN 12 - 
-- PIN 13 - 
+- PIN 13 - Solenoid triggering for ball dispenser (RB9)
 - PIN 14 - PWM out Satelite Servo (OC1)
 - PIN 15 - IR photodiode ball (AN12)
 - PIN 16 - IR photodiode satellite (AN11)
