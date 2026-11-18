@@ -197,15 +197,15 @@ void navigateCanyon(){
     setMotorSpeed(countsPerDegreesPerSecond(leftSpeed),FORWARD,LEFT);
     setMotorSpeed(countsPerDegreesPerSecond(rightSpeed),FORWARD,RIGHT);
 }
-void lineFollow(){
+void lineFollow (double speed){
     double leftLight = (ADC1BUF4 / 4096.);
     double middleLight = (ADC1BUF13 / 4096.);
     double rightLight = (ADC1BUF12 / 4096.);
     unsigned char leftDir = FORWARD;
     unsigned char rightDir = FORWARD;
     // light goes high on black, low on white
-    int leftSpeed = 1000 - (rightLight * 900) - ((rightLight * middleLight) * 1500) + (leftLight * middleLight * 1500);
-    int rightSpeed = 1000 - (leftLight * 900) - ((leftLight * middleLight) * 1500) + (rightLight * middleLight * 1500);
+    int leftSpeed = 1000*speed - (rightLight * 900) - ((rightLight * middleLight) * 1500) + (leftLight * middleLight * 1500);
+    int rightSpeed = 1000*speed - (leftLight * 900) - ((leftLight * middleLight) * 1500) + (rightLight * middleLight * 1500);
     if(leftSpeed < 0){
         leftSpeed = abs(leftSpeed);
         leftDir = BACKWARD;
@@ -247,21 +247,29 @@ void checkForCanyon(){
 
 void depositBall(){
     //move forward
+    int holder = 1;
+    while (holder == 1) {
     stopForSeconds(2);
-    driveForSeconds(countsPerDegreesPerSecond(360),5.5,FORWARD);
+    TMR1 = 0;
+    PR1 = timerCountsPerSecond(1.25);
+    timer1Done = 0;
+    while(!timer1Done){
+        lineFollow(1);
+    }
     stopForSeconds(2);
     turnForDegrees(540,90,checkBallColor());
-    // stopForSeconds(2);
-    // _LATA3 = 1; // solenoid trigger on 
-    // stopForSeconds(2);
-    // _LATA3 = 0; // solenoid trigger off
-    // stopForSeconds(2);
-    // driveForSeconds(countsPerDegreesPerSecond(200),.5,FORWARD);
-    // stopForSeconds(2);
-    // driveForSeconds(countsPerDegreesPerSecond(200),.5,BACKWARD);
-    // stopForSeconds(2);
-    // turnForDegrees(540,90,checkBallColor() ^1);
-    // stopForSeconds(2);
+    stopForSeconds(2);
+
+    driveForSeconds(countsPerDegreesPerSecond(200),.4,BACKWARD);
+    stopForSeconds(2);
+    _LATA3 = 1; // solenoid trigger on 
+    stopForSeconds(2);
+    _LATA3 = 0; // solenoid trigger off
+    stopForSeconds(2);
+    driveForSeconds(countsPerDegreesPerSecond(200),.25,FORWARD);
+    stopForSeconds(2);
+    turnForDegrees(540,90,checkBallColor() ^1);
+    stopForSeconds(2);
 
 
     // driveForSeconds(countsPerDegreesPerSecond(360),5,FORWARD);
@@ -293,7 +301,10 @@ void depositBall(){
 //        currentState = FOLLOW_LINE;
 //    
 //    }
-//    ball = 0;
+
+        ball = 0;
+        holder = 0;
+    }
 
 }
 
@@ -303,8 +314,8 @@ void checkForBox(){
     double rightLight = (ADC1BUF12 / 4096.);
     double rightSenseVoltage = (ADC1BUF9)/4096.; // adjust these values for differences in robots
     double leftSenseVoltage = (ADC1BUF11)/4096.;//
-    float thresholdBoxDistance = .1;
-    if(middleLight < 0.1 && rightSenseVoltage > thresholdBoxDistance && leftSenseVoltage > thresholdBoxDistance && leftLight < 0.8 && rightLight < 0.8 ){ // NEED TO MESS WITH THESE TO GET IT TO  TRANSITION
+    float thresholdBoxDistance = .3;
+    if(middleLight > 0.1 && rightSenseVoltage > thresholdBoxDistance && leftSenseVoltage > thresholdBoxDistance && leftLight < 0.8 && rightLight < 0.8 ){ // NEED TO MESS WITH THESE TO GET IT TO  TRANSITION
         currentState = DEPOSIT_BALL;
     }
     
@@ -445,7 +456,7 @@ void pinSetup(){
 }
 int main(){
     unsigned char notFinished = TRUE;    
-    currentState = FOLLOW_LINE;
+    currentState = NAVIGATE_CANYON;
 
     oscSetup();
     clearRegisters();
@@ -458,21 +469,21 @@ int main(){
     while(notFinished){        
         switch(currentState){
             case (FOLLOW_LINE):
-                lineFollow();
+                lineFollow(1);
                 checkForCanyon();
                 if(1 == 1){
                     checkForBox();
                 }
                 break;
             case (NAVIGATE_CANYON):
-                _LATA0 = 0;
+                _LATA0 = 1;
                 navigateCanyon();
                 checkForLine();
                 break;
             case (COLLECT_BALL):
                 break;
             case (DEPOSIT_BALL):
-                _LATA0 = 1;
+                _LATA0 = 0;
                 depositBall();
                 currentState = FOLLOW_LINE;
                 break;
