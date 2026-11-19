@@ -173,9 +173,16 @@ void stopForSeconds(double seconds){
 }
 int checkBallColor(){
     /*Returns 1 for BLACK, 0 for WHITE*/ 
-    // double QRDcolor = ADC1BUF1/4095.0;
+    int color;
+    double QRDcolor = (ADC1BUF1)/4095.0;
+    if (QRDcolor < 0.2) {
+        color = 1;
+    }
+    else {
+        color = 0;
+    }
 
-    return 1;
+    return color;
 }
 
 void navigateCanyon(){
@@ -245,80 +252,53 @@ void checkForCanyon(){
     
 }
 
-void depositBall(){
+void depositBall() {
     //move forward
     int holder = 1;
-    while (holder == 1) {
-    stopForSeconds(2);
-    TMR1 = 0;
-    PR1 = timerCountsPerSecond(1.25);
-    timer1Done = 0;
-    while(!timer1Done){
-        lineFollow(1);
-    }
+    int color = checkBallColor(); // white is 1
     
-    stopForSeconds(2);
-    turnForDegrees(540,90,checkBallColor());
-    stopForSeconds(2);
+    while (holder == 1) {
+        stopForSeconds(2);
+        TMR1 = 0;
+        PR1 = timerCountsPerSecond(1.25);
+        timer1Done = 0;
 
-    driveForSeconds(countsPerDegreesPerSecond(200),.4,BACKWARD);
-    stopForSeconds(2);
-    _LATB4 = 1; // solenoid trigger on 
-    stopForSeconds(4);
-    _LATB4 = 0; // solenoid trigger off
-    stopForSeconds(2);
-    driveForSeconds(countsPerDegreesPerSecond(200),.25,FORWARD);
-    stopForSeconds(2);
-    turnForDegrees(540,90,checkBallColor() ^1);
-    stopForSeconds(2);
+        while(!timer1Done){
+            lineFollow(1);
+        }
+        stopForSeconds(2);
 
 
-    // driveForSeconds(countsPerDegreesPerSecond(360),5,FORWARD);
-    // stopForSeconds(1.5);
-    // driveForSeconds(countsPerDegreesPerSecond(360),5,BACKWARD);
-    // turnForDegrees(540,90,checkBallColor()^1);
-//    if(QRDcolor > .5){
-//        //setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,LEFT);
-//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,RIGHT);
-//        i = 0;
-//        while(i<5000) i++; //finish turn
-//        _LATA1 = 1;
-//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,LEFT);
-//        setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,RIGHT);
-//        i = 0;
-//        while(i<5000) i++; //finish turn
-//        currentState = FOLLOW_LINE;
-//    }
-//    else{
-//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,LEFT);
-//        //setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,RIGHT);
-//        i = 0;
-//        while(i<500) i++; //finish turn
-//        _LATA1 = 1;
-//        setMotorSpeed(countsPerDegreesPerSecond(200),BACKWARD,LEFT);
-//        setMotorSpeed(countsPerDegreesPerSecond(200),FORWARD,RIGHT);
-//        i = 0;
-//        while(i<500) i++; //finish turn
-//        currentState = FOLLOW_LINE;
-//    
-//    }
-
+        turnForDegrees(540,90,checkBallColor());
+        stopForSeconds(2);
+        driveForSeconds(countsPerDegreesPerSecond(200),.4,BACKWARD);
+        stopForSeconds(2);
+        _LATB4 = 1; // solenoid trigger on 
+        stopForSeconds(4);
+        _LATB4 = 0; // solenoid trigger off
+        stopForSeconds(2);
+        driveForSeconds(countsPerDegreesPerSecond(200),.25,FORWARD);
+        stopForSeconds(2);
+        turnForDegrees(540,90,checkBallColor() ^1);
+        stopForSeconds(2);
+        holder = 0;
         ball = 0;
+    
     }
-
 }
 
-void checkForBox(){
+
+void checkForBox() {
     double leftLight = (ADC1BUF4 / 4096.);
     double middleLight = (ADC1BUF13 / 4096.);
     double rightLight = (ADC1BUF12 / 4096.);
     double rightSenseVoltage = (ADC1BUF9)/4096.; // adjust these values for differences in robots
     double leftSenseVoltage = (ADC1BUF11)/4096.;//
     float thresholdBoxDistance = .3;
-    if(middleLight > 0.1 && rightSenseVoltage > thresholdBoxDistance && leftSenseVoltage > thresholdBoxDistance && leftLight < 0.8 && rightLight < 0.8 ){ // NEED TO MESS WITH THESE TO GET IT TO  TRANSITION
+    if(middleLight > 0.1 && rightSenseVoltage > thresholdBoxDistance && leftSenseVoltage > 
+        thresholdBoxDistance && leftLight < 0.8 && rightLight < 0.8 ){ // NEED TO MESS WITH THESE TO GET IT TO  TRANSITION
         currentState = DEPOSIT_BALL;
     }
-    
 }
 
 // NEW STUFF FOR PING PONG PICK UP
@@ -454,7 +434,8 @@ void pinSetup(){
     _ANSA0 = 0; // config working on rn
     _ANSB4 = 0;
 }
-int main(){
+
+int main(void) {
     unsigned char notFinished = TRUE;    
     currentState = FOLLOW_LINE;
 
