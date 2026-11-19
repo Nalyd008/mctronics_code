@@ -256,15 +256,16 @@ void depositBall(){
     while(!timer1Done){
         lineFollow(1);
     }
+    
     stopForSeconds(2);
     turnForDegrees(540,90,checkBallColor());
     stopForSeconds(2);
 
     driveForSeconds(countsPerDegreesPerSecond(200),.4,BACKWARD);
     stopForSeconds(2);
-    _LATA3 = 1; // solenoid trigger on 
-    stopForSeconds(2);
-    _LATA3 = 0; // solenoid trigger off
+    _LATB4 = 1; // solenoid trigger on 
+    stopForSeconds(4);
+    _LATB4 = 0; // solenoid trigger off
     stopForSeconds(2);
     driveForSeconds(countsPerDegreesPerSecond(200),.25,FORWARD);
     stopForSeconds(2);
@@ -303,7 +304,6 @@ void depositBall(){
 //    }
 
         ball = 0;
-        holder = 0;
     }
 
 }
@@ -444,7 +444,7 @@ void pinSetup(){
     _TRISB15 = 1;
     _TRISB13 = 1;
     _TRISA0 = 0;
-    _TRISA3 = 0;
+    _TRISB4 = 0;
 
     _ANSB2 = 1;
     _ANSA2 = 1;
@@ -452,11 +452,11 @@ void pinSetup(){
     _ANSB13 = 1;
     _ANSB15 = 1;
     _ANSA0 = 0; // config working on rn
-    _ANSA3 = 0;
+    _ANSB4 = 0;
 }
 int main(){
     unsigned char notFinished = TRUE;    
-    currentState = NAVIGATE_CANYON;
+    currentState = FOLLOW_LINE;
 
     oscSetup();
     clearRegisters();
@@ -466,24 +466,26 @@ int main(){
     pinSetup();
     configADC();
 
-    while(notFinished){        
+    while(notFinished){      
+           
         switch(currentState){
             case (FOLLOW_LINE):
+                _LATA0 = 0;
                 lineFollow(1);
                 checkForCanyon();
-                if(1 == 1){
+                if(ball == 1){
                     checkForBox();
                 }
                 break;
             case (NAVIGATE_CANYON):
-                _LATA0 = 1;
+                _LATA0 = 0;
                 navigateCanyon();
                 checkForLine();
                 break;
             case (COLLECT_BALL):
                 break;
             case (DEPOSIT_BALL):
-                _LATA0 = 0;
+                _LATA0 = 1;
                 depositBall();
                 currentState = FOLLOW_LINE;
                 break;
