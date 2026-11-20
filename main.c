@@ -176,14 +176,10 @@ int checkBallColor(){
     /*Returns 1 for BLACK, 0 for WHITE*/ 
     int color;
     double QRDcolor = (ADC1BUF1)/4095.0;
-    if (QRDcolor < 0.2) {
-        color = 1;
+    if (QRDcolor < 0.4) {
+        return 1;
     }
-    else {
-        color = 0;
-    }
-
-    return color;
+    return 0;
 }
 
 void navigateCanyon(){
