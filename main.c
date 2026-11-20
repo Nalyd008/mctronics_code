@@ -10,6 +10,7 @@
 #include <xc.h>
 #pragma config FNOSC = FRCDIV // 8MHz Fast RC with Postscaler
 #pragma config OSCIOFNC = OFF
+#pragma config SOSCSRC = DIG
 
 #define TRUE 1
 #define FALSE 0
@@ -112,7 +113,7 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
         // currentRightSpeed += delta;
 
         // int speed = abs(currentRightSpeed);
-        _LATB7 = direction;
+        _LATB4 = direction;
         OC3RS = speed;
         OC3R = (speed + 1) * dutyCycle;
         
@@ -124,7 +125,7 @@ void setMotorSpeed(double counts, unsigned char direction, unsigned char motor){
         // long double delta = error / kp;
         // currentLeftSpeed += delta;
         // int speed = abs(currentLeftSpeed);
-        _LATB8 = direction;
+        _LATA4 = direction;
         OC2RS = speed;
         OC2R = (speed+1) * dutyCycle;
         
@@ -207,7 +208,7 @@ void navigateCanyon(){
 void lineFollow (double speed){
     double leftLight = (ADC1BUF4 / 4096.);
     double middleLight = (ADC1BUF13 / 4096.);
-    double rightLight = (ADC1BUF12 / 4096.);
+    double rightLight = (ADC1BUF14 / 4096.);
     unsigned char leftDir = FORWARD;
     unsigned char rightDir = FORWARD;
     // light goes high on black, low on white
@@ -255,7 +256,8 @@ void checkForCanyon(){
 void depositBall() {
     //move forward
     int holder = 1;
-    int color = checkBallColor(); // white is 1
+    int color;
+    color = checkBallColor(); // white is 1
     
     while (holder == 1) {
         stopForSeconds(2);
@@ -273,9 +275,9 @@ void depositBall() {
         stopForSeconds(2);
         driveForSeconds(countsPerDegreesPerSecond(200),.4,BACKWARD);
         stopForSeconds(2);
-        _LATB4 = 1; // solenoid trigger on 
+        _LATB14 = 1; // solenoid trigger on 
         stopForSeconds(4);
-        _LATB4 = 0; // solenoid trigger off
+        _LATB14 = 0; // solenoid trigger off
         stopForSeconds(2);
         driveForSeconds(countsPerDegreesPerSecond(200),.25,FORWARD);
         stopForSeconds(2);
@@ -424,6 +426,8 @@ void pinSetup(){
     _TRISB15 = 1;
     _TRISB13 = 1;
     _TRISA0 = 0;
+    _TRISB14 = 0;
+    _TRISA4 = 0;
     _TRISB4 = 0;
 
     _ANSB2 = 1;
@@ -432,6 +436,7 @@ void pinSetup(){
     _ANSB13 = 1;
     _ANSB15 = 1;
     _ANSA0 = 0; // config working on rn
+    _ANSB14 = 0;
     _ANSB4 = 0;
 }
 
@@ -447,8 +452,9 @@ int main(void) {
     pinSetup();
     configADC();
 
-    while(notFinished){      
-           
+
+    while(notFinished){   
+        //_LATB14 = 1; // solenoid trigger on   
         switch(currentState){
             case (FOLLOW_LINE):
                 _LATA0 = 0;
