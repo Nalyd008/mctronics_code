@@ -180,7 +180,7 @@ void depositBall(){
   
     //move forward
     stopForSeconds(2);
-    driveForSeconds(countsPerDegreesPerSecond(360),5,FORWARD);
+    onds(countsPerDegreesPerSecond(360),5,FORWARD);
     stopForSeconds(2);
     turnForDegrees(540,90,checkBallColor());
     stopForSeconds(2);
@@ -299,18 +299,15 @@ void checkForBox(){
 
 // NEW STUFF FOR PING PONG PICK UP
 
-if(_RA1 == 1) //make sure this is pin 2
-{
-    currentState = PingPongPickUp;
-}
 void PingPongPickUp(){
     setMotorSpeed(0, FORWARD, LEFT);
     setMotorSpeed(0, FORWARD, RIGHT);
     turnForDegrees(540, 90, LEFT);
-    driveForSeconds(7, 360, BACKWARD); //change this
-    stopForSeconds(4); //this too
-    driveForSeconds(7, 360, FORWARD); //also this
+    driveForSeconds(countsPerDegreesPerSecond(720),.5,BACKWARD);    
+    stopForSeconds(2);
+    driveForSeconds(countsPerDegreesPerSecond(720),.5,FORWARD);    
     turnForDegrees(540, 90, RIGHT);
+    currentState = FOLLOW_LINE; 
 }
 //tell it to go back to line follow
 //code to read the ping pong ball here
@@ -446,6 +443,10 @@ int main(){
                 checkForCanyon();
                 if(1 == 1){
                     checkForBox();
+                }
+                if(_RA1 == 1) //make sure this is pin 2
+                {
+                currentState = PingPongPickUp;
                 }
                 break;
             case (NAVIGATE_CANYON):
