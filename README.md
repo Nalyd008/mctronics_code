@@ -23,8 +23,8 @@ Pin out:
 - PIN 14 - PWM out Satelite Servo (OC1)
 - PIN 15 - IR photodiode ball (AN12)
 - PIN 16 - IR photodiode satellite (AN11)
-- PIN 17 - Sharp sensor for canyon (AN10)
-- PIN 18 - Sharp sensor for canyon (AN9)
+- PIN 17 - Left sharp sensor for canyon (AN10)
+- PIN 18 - Right sharp sensor for canyon (AN9)
 - PIN 19 - VSS (GND)
 - PIN 20 - VDD (3.3V)
 
