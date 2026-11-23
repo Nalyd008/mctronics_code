@@ -27,14 +27,57 @@
 #define MIDDLE_QRD_ANALOG ADC1BUF13
 #define RIGHT_QRD_ANALOG ADC1BUF14
 
-#define BALL_QRD_ANALOG ADCBUF1
+#define BALL_QRD_ANALOG ADC1BUF1
 #define SATELITE_IR_ANALOG ADC1BUF11
+#define BALL_IR_ANALOG ADC1BUF12
+
+//Threshold values REMEMBER BLACK = HIGH ON QRDs
+#define THRESHOLD_BALL_VOLTAGE 2.5
+
+    // Trigger for canyon
+#define THRESHOLD_CANYON_LEFT_QRD_VOLTAGE 1.1
+#define THRESHOLD_CANYON_MIDDLE_QRD_VOLTAGE 1.1
+#define THRESHOLD_CANYON_RIGHT_QRD_VOLTAGE 1.1
+#define THRESHOLD_CANYON_RIGHT_SHARP_VOLTAGE 1.32
+#define THRESHOLD_CANYON_LEFT_SHARP_VOLTAGE 1.32
+
+    // Trigger for ball drop off
+#define THRESHOLD_CHECK_BOX_LEFT_QRD_VOLTAGE 2.64
+#define THRESHOLD_CHECK_BOX_MIDDLE_QRD_VOLTAGE .33
+#define THRESHOLD_CHECK_BOX_RIGHT_QRD_VOLTAGE 2.64
+#define THRESHOLD_CHECK_BOX_LEFT_SHARP_VOLTAGE 1
+#define THRESHOLD_CHECK_BOX_RIGHT_SHARP_VOLTAGE 1
+
+    // Ball sorter color
+#define THRESHOLD_BALL_COLOR_QRD_VOLTAGE 2
+
+    // Line Follow
+#define LINE_FOLLOW_BASE_SPEED 1000
+#define KP_SPEED_UP_ONE_LIGHT_OFF 0
+#define KP_SPEED_DOWN_ONE_LIGHT_OFF .3
+#define KP_SPEED_UP_ONE_LIGHT_OFF 0
+#define KP_SPEED_DOWN_ONE_LIGHT_OFF .3
+#define KP_SPEED_UP_TWO_LIGHT_OFF .5
+#define KP_SPEED_DOWN_TWO_LIGHT_OFF .5
+
+    // Canyon Navigation
+#define CANYON_BASE_SPEED 700
+#define KP_CANYON 1
+
+    // Check for Line (exit canyon)
+#define THRESHOLD_CHECK_LINE_LEFT_QRD_VOLTAGE 1.1
+#define THRESHOLD_CHECK_LINE_MIDDLE_QRD_VOLTAGE 1.1
+#define THRESHOLD_CHECK_LINE_RIGHT_QRD_VOLTAGE 1.1
+
+    // Satellite Alignment
+#define THRESHOLD_SATELLITE_LEFT_SHARP_VOLTAGE .4 // greater than
+#define THRESHOLD_SATELLITE_RIGHT_SHARP_VOLTAGE .4 // greater than
+#define SATELLITE_SERVO_STARTING_DUTY_CYCLE .1 // varies from .1 to .2 for max and min of servo
+#define THRESHOLD_SATELLITE_IR_VOLTAGE .4 // less than
 
 
 unsigned char timer1Done = 0;
 unsigned char timer2Done = 0;
-
-long double kp = 1;
 
 double oscFreq;
 int oscDiv;
@@ -77,6 +120,13 @@ void getBall();
 //         getBall();
 //     }
 // }
+void _ISR _CompInterrupt(void){
+    _CMIF =0;
+    if(CM3CONbits.CEVT){
+        CM1CONbits.CEVT = 0;
+        // GetBall();
+    }
+}
 void _ISR _T1Interrupt(void){
     _T1IF = 0;
     timer1Done = 1;
@@ -88,6 +138,9 @@ void _ISR _T2Interrupt(void){
 
 
 // HELPER FUNCTIONS
+double convertAnalogToVoltage(double analogInput){
+    return (analogInput / 4096.) * 3.3;
+}
 int countsPerRevolutionPerSecond(double revolutionsPerSecond){
     int clockCounts = (oscFreq / oscDiv) / (FULL_STEPS_PER_REVOLUTION * microSteps * revolutionsPerSecond);
     return clockCounts; 
@@ -100,7 +153,13 @@ int countsPerSecond(double seconds){
     return clockCounts;
 }
 int timerCountsPerSecond(double seconds){
+    // Max is 4.16 seconds
     int clockCounts = oscFreq * seconds / oscDiv / timerPrescaler;
+    return clockCounts;
+}
+int timerCountsPerFrequncy(double hertz){
+    // Max is 4.16 seconds
+    int clockCounts = oscFreq / oscDiv / timerPrescaler / hertz;
     return clockCounts;
 }
 int countsPerFrequency(double hertz){
@@ -201,8 +260,9 @@ void stopForSeconds(double seconds){
 int checkBallColor(){
     /*Returns 1 for BLACK, 0 for WHITE*/ 
     int color;
-    double QRDcolor = (ADC1BUF1)/4095.0*3.3;
-    if (QRDcolor < 2) {
+    double QRDcolor = convertAnalogToVoltage(BALL_QRD_ANALOG);
+    
+    if (QRDcolor < THRESHOLD_BALL_COLOR_QRD_VOLTAGE) {
         color = 1;
     }
     else {
@@ -210,6 +270,16 @@ int checkBallColor(){
     }
 
     return color;
+}
+void getBall(){
+    setMotorSpeed(0, FORWARD, LEFT);
+    setMotorSpeed(0, FORWARD, RIGHT);
+    turnForDegrees(540, 90, LEFT);
+    driveForSeconds(360, 7, BACKWARD); //change this
+    stopForSeconds(4); //this too
+    driveForSeconds(360, 7, FORWARD); //also this
+    turnForDegrees(540, 90, RIGHT);
+    hasBall = TRUE;
 }
 void depositBall() {
     //move forward
@@ -265,14 +335,12 @@ void depositBall() {
     
 }
 void navigateCanyon(){
-    double rightSenseVoltage = (RIGHT_SHARP_ANALOG)/4096. * 3.3; // adjust these values for differences in robots
-    double leftSenseVoltage = (LEFT_SHARP_ANALOG)/4096. * 3.3;
+    double rightSenseVoltage = convertAnalogToVoltage(RIGHT_SHARP_ANALOG); // adjust these values for differences in robots
+    double leftSenseVoltage = convertAnalogToVoltage(LEFT_SHARP_ANALOG);
     double error = leftSenseVoltage - rightSenseVoltage;
 
-
-    int kp = 400;
-    int leftSpeed = 700 - (error * kp);
-    int rightSpeed = 700 + (error * kp);
+    int leftSpeed = 700 - (error * KP_CANYON);
+    int rightSpeed = 700 + (error * KP_CANYON);
     
     if (rightSpeed < 120){
         rightSpeed = 120;
@@ -283,16 +351,17 @@ void navigateCanyon(){
     setMotorSpeed(leftSpeed,FORWARD,LEFT);
     setMotorSpeed(rightSpeed,FORWARD,RIGHT);
 }
-void lineFollow(double speed){
-    double leftLight = (LEFT_QRD_ANALOG / 4096.);
-    double middleLight = (MIDDLE_QRD_ANALOG / 4096.);
-    double rightLight = (RIGHT_QRD_ANALOG / 4096.);
+void lineFollow(){
+    double leftLight = convertAnalogToVoltage(LEFT_QRD_ANALOG);
+    double middleLight = convertAnalogToVoltage(MIDDLE_QRD_ANALOG);
+    double rightLight = convertAnalogToVoltage(RIGHT_QRD_ANALOG);
 
     unsigned char leftDir = FORWARD;
     unsigned char rightDir = FORWARD;
+
     // light goes high on black, low on white
-    int leftSpeed = 1000 * speed - (rightLight * 900 * speed) - ((rightLight * middleLight) * 1500 * speed) + (leftLight * middleLight * 1500 * speed);
-    int rightSpeed = 1000 * speed - (leftLight * 900 * speed) - ((leftLight * middleLight) * 1500 * speed) + (rightLight * middleLight * 1500 * speed);
+    int leftSpeed = LINE_FOLLOW_BASE_SPEED * (1 + (leftLight * KP_SPEED_UP_ONE_LIGHT_OFF) - (rightLight * KP_SPEED_DOWN_ONE_LIGHT_OFF) - ((rightLight * middleLight) * KP_SPEED_DOWN_TWO_LIGHT_OFF) + (leftLight * middleLight * KP_SPEED_UP_TWO_LIGHT_OFF));
+    int rightSpeed = LINE_FOLLOW_BASE_SPEED * (1 + (rightLight * KP_SPEED_UP_ONE_LIGHT_OFF) - (leftLight * KP_SPEED_DOWN_ONE_LIGHT_OFF) - ((leftLight * middleLight) * KP_SPEED_DOWN_TWO_LIGHT_OFF) + (rightLight * middleLight * KP_SPEED_UP_TWO_LIGHT_OFF));
     if(leftSpeed < 0){
         leftSpeed = abs(leftSpeed);
         leftDir = BACKWARD;
@@ -313,44 +382,40 @@ void lineFollow(double speed){
     setMotorSpeed(rightSpeed,rightDir,RIGHT);
 }
 void checkForLine(){
-    double leftLight = (LEFT_QRD_ANALOG / 4096.);
-    double middleLight = (MIDDLE_QRD_ANALOG / 4096.);
-    double rightLight = (RIGHT_QRD_ANALOG / 4096.);
-    if(leftLight <.5 || middleLight < .5 || rightLight < .5){ // adjust value?
+    double leftLight = convertAnalogToVoltage(LEFT_QRD_ANALOG);
+    double middleLight = convertAnalogToVoltage(MIDDLE_QRD_ANALOG);
+    double rightLight = convertAnalogToVoltage(RIGHT_QRD_ANALOG);
+   
+    if(leftLight < THRESHOLD_CHECK_LINE_LEFT_QRD_VOLTAGE|| middleLight < THRESHOLD_CHECK_LINE_MIDDLE_QRD_VOLTAGE || rightLight < THRESHOLD_CHECK_LINE_RIGHT_QRD_VOLTAGE){ // adjust value?
         currentState = FOLLOW_LINE;
     }
 }
+void checkForBall(){
+    double ballIR = convertAnalogToVoltage(BALL_IR_ANALOG);
+    if(ballIR > THRESHOLD_BALL_VOLTAGE){
+        getBall();
+    }
+}
 void checkForCanyon(){
-    double leftLight = (LEFT_QRD_ANALOG / 4096.);
-    double middleLight = (MIDDLE_QRD_ANALOG / 4096.);
-    double rightLight = (RIGHT_QRD_ANALOG / 4096.);
-    double rightSenseVoltage = (RIGHT_SHARP_ANALOG)/4096. * 3.3; // adjust these values for differences in robots
-    double leftSenseVoltage = (LEFT_SHARP_ANALOG)/4096. * 3.3;
-    if(leftLight >.3 && middleLight > .3 && rightLight > .3 && rightSenseVoltage > .4 && leftSenseVoltage >.4){ // adjust value?
+    double leftLight = convertAnalogToVoltage(LEFT_QRD_ANALOG);
+    double middleLight = convertAnalogToVoltage(MIDDLE_QRD_ANALOG);
+    double rightLight = convertAnalogToVoltage(RIGHT_QRD_ANALOG);
+    double rightSenseVoltage = convertAnalogToVoltage(RIGHT_SHARP_ANALOG);
+    double leftSenseVoltage = convertAnalogToVoltage(LEFT_SHARP_ANALOG);
+
+    if(leftLight > THRESHOLD_CANYON_LEFT_QRD_VOLTAGE && middleLight > THRESHOLD_CANYON_MIDDLE_QRD_VOLTAGE && rightLight > THRESHOLD_CANYON_RIGHT_QRD_VOLTAGE && rightSenseVoltage > THRESHOLD_CANYON_RIGHT_SHARP_VOLTAGE && leftSenseVoltage > THRESHOLD_CANYON_LEFT_SHARP_VOLTAGE){ // adjust value?
         currentState = NAVIGATE_CANYON;
     }
-    
 }
 void checkForBox(){    
-    double leftLight = (LEFT_QRD_ANALOG / 4096.);
-    double middleLight = (MIDDLE_QRD_ANALOG / 4096.);
-    double rightLight = (RIGHT_QRD_ANALOG / 4096.);
-    double rightSenseVoltage = (RIGHT_SHARP_ANALOG)/4096.; 
-    double leftSenseVoltage = (LEFT_SHARP_ANALOG)/4096.;
-    float thresholdBoxDistance = .3;
-    if(middleLight > 0.1 && rightSenseVoltage > thresholdBoxDistance && leftSenseVoltage > thresholdBoxDistance && leftLight < 0.8 && rightLight < 0.8 ){ // NEED TO MESS WITH THESE TO GET IT TO  TRANSITION
+    double leftLight = convertAnalogToVoltage(LEFT_QRD_ANALOG);
+    double middleLight = convertAnalogToVoltage(MIDDLE_QRD_ANALOG);
+    double rightLight = convertAnalogToVoltage(RIGHT_QRD_ANALOG);
+    double rightSenseVoltage = convertAnalogToVoltage(RIGHT_SHARP_ANALOG);
+    double leftSenseVoltage = convertAnalogToVoltage(LEFT_SHARP_ANALOG);
+    if(middleLight < THRESHOLD_CHECK_BOX_MIDDLE_QRD_VOLTAGE && leftLight < THRESHOLD_CHECK_BOX_LEFT_QRD_VOLTAGE && rightLight < THRESHOLD_CHECK_BOX_RIGHT_QRD_VOLTAGE && rightSenseVoltage > THRESHOLD_CHECK_BOX_RIGHT_SHARP_VOLTAGE && leftSenseVoltage > THRESHOLD_CHECK_BOX_LEFT_SHARP_VOLTAGE){ // NEED TO MESS WITH THESE TO GET IT TO  TRANSITION
         depositBall();
     }
-}
-void getBall(){
-    setMotorSpeed(0, FORWARD, LEFT);
-    setMotorSpeed(0, FORWARD, RIGHT);
-    turnForDegrees(540, 90, LEFT);
-    driveForSeconds(360, 7, BACKWARD); //change this
-    stopForSeconds(4); //this too
-    driveForSeconds(360, 7, FORWARD); //also this
-    turnForDegrees(540, 90, RIGHT);
-    hasBall = TRUE;
 }
 //tell it to go back to line follow
 //code to read the ping pong ball here
@@ -359,8 +424,7 @@ void adjustSatellite(){
     turnForDegrees(90,1,LEFT);
     setMotorSpeed(540,FORWARD,LEFT);
     setMotorSpeed(540,FORWARD,RIGHT);
-
-    while(LEFT_SHARP_ANALOG > .4 && RIGHT_SHARP_ANALOG > .4){} //ADJUST THESE VALUES
+    while(convertAnalogToVoltage(LEFT_SHARP_ANALOG) > THRESHOLD_SATELLITE_LEFT_SHARP_VOLTAGE && convertAnalogToVoltage(RIGHT_SHARP_ANALOG) > THRESHOLD_SATELLITE_RIGHT_SHARP_VOLTAGE){} //ADJUST THESE VALUES
 
     setMotorSpeed(0,FORWARD,LEFT);
     setMotorSpeed(0,FORWARD,RIGHT);
@@ -368,11 +432,13 @@ void adjustSatellite(){
     currentState = STOPPED;
 
     // CHANGE THESE NUMBERS TO BE ALIGNED WITH 50 HZ PERIOD 
-    OC1RS = 1;
-    OC1R = .5;
-    while(SATELITE_IR_ANALOG < .4){ // ADJUST THESE VALUES
-        OC1R+= .01; // Add increasing duty cycle
+    
+    OC1R = timerCountsPerFrequncy(50); // Period of 20 ms
+    OC1RS = OC1R * SATELLITE_SERVO_STARTING_DUTY_CYCLE; // Duty cylce varies from 1-2 ms for 0 - 180 degrees of servo (.1 - .2)
+    while(convertAnalogToVoltage(SATELITE_IR_ANALOG) < THRESHOLD_SATELLITE_IR_VOLTAGE){ // ADJUST THESE VALUES
+        OC1R+= 1; // Add increasing duty cycle
     }
+
 }
 
 // SETUP FUNCTIONS
@@ -409,11 +475,18 @@ void timerSetup(){
     T2CONbits.TCKPS = 0b11; // Prescale value 1:256 ~ 4s with no Postscale
     PR2 = timerCountsPerSecond(4);
 
-    T2CONbits.TON = 1; // Turn on timer 1
+    T3CONbits.TON = 1; // Turn on timer 1
+
+    T3CONbits.TCS = 0; // Select internal clock (Osc/2)
+
+    T3CONbits.TCKPS = 0b11; // Prescale value 1:256 ~ 4s with no Postscale
+    PR3 = timerCountsPerSecond(4);
+
+    T3CONbits.TON = 1; // Turn on timer 1
 }
 void pwmSetup(){
     // CHANGE OC1 TO USE DIFFERENT CLOCK SOURCE FOR 50 HZ
-    OC1CON1bits.OCTSEL = 0b111;
+    OC1CON1bits.OCTSEL = 0b000;
     OC2CON1bits.OCTSEL = 0b111; // System clock
     OC3CON1bits.OCTSEL = 0b111;
     
@@ -469,11 +542,14 @@ void configADC(void)
     // _CH0NA = 0;   // AD1CHS<7:5> -- Use VDD as negative input
     // _CH0SA = 0;  // AD1CHS<4:0> -- Use AN0 as positive input
     // AD1CSSL register
-    AD1CSSL = 0b0110111000010010;  // AD1CSSL<15:0> -- Skip all channels on 
+    AD1CSSL = 0b0111111000010010;  // AD1CSSL<15:0> -- Skip all channels on 
                   // input scan -- see the CSCNA bits in
                   // AD1CON2
     _ADON = 1;    // AD1CON1<15> -- Turn on A/D
 
+}
+void configInterrupt(){
+ // Compare comparator 3 on C3INC to Voltage
 }
 void pinSetup(){
     _TRISA1 = 1; //AN1
@@ -484,6 +560,7 @@ void pinSetup(){
     _TRISB15 = 1; //AN9
     _TRISB14 = 1; //AN10
     _TRISB13 = 1; //AN11
+    _TRISB12 = 1; //AN12
 
 
     _ANSA1 = 1; //AN1
@@ -493,7 +570,8 @@ void pinSetup(){
 
     _ANSB15 = 1; //AN9
     _ANSB14 = 1; //AN10
-    _ANSB13 = 1; //AN10
+    _ANSB13 = 1; //AN11
+    _ANSB12 = 1; //AN12
 }
 int main(){
     unsigned char notFinished = TRUE;    
@@ -506,15 +584,20 @@ int main(){
     interruptSetup();
     pinSetup();
     configADC();
+    configInterrupt();
 
     while(notFinished){        
         switch(currentState){
             case (FOLLOW_LINE):
-                lineFollow(1);
+                lineFollow();
                 checkForCanyon();
                 if(hasBall){
                     checkForBox();
                 }
+                else{
+                    checkForBall();
+                }
+                
                 break;
             case (NAVIGATE_CANYON):
                 navigateCanyon();
