@@ -421,7 +421,7 @@ void checkForBox(){
 //code to read the ping pong ball here
 void adjustSatellite(){
     driveForSeconds(360, 1, FORWARD);
-    turnForDegrees(90,1,LEFT);
+    turnForDegrees(540,90,LEFT);
     setMotorSpeed(540,FORWARD,LEFT);
     setMotorSpeed(540,FORWARD,RIGHT);
     while(convertAnalogToVoltage(LEFT_SHARP_ANALOG) > THRESHOLD_SATELLITE_LEFT_SHARP_VOLTAGE && convertAnalogToVoltage(RIGHT_SHARP_ANALOG) > THRESHOLD_SATELLITE_RIGHT_SHARP_VOLTAGE){} //ADJUST THESE VALUES
