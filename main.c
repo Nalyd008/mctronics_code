@@ -297,19 +297,19 @@ void depositBall() {
 //            lineFollow(1);
 //        }
 //        stopForSeconds(2);
-    driveForSeconds(countsPerDegreesPerSecond(200),2.4,FORWARD);
+    driveForSeconds(200,2.4,FORWARD);
     
     if(color == 0){
         
         turnForDegrees(540,120,LEFT);
         stopForSeconds(2);
-        driveForSeconds(countsPerDegreesPerSecond(200),.8,BACKWARD);
+        driveForSeconds(200,.8,BACKWARD);
         stopForSeconds(2);
         _LATB14 = 1; // solenoid trigger on 
         stopForSeconds(4);
         _LATB14 = 0; // solenoid trigger off
         stopForSeconds(2);
-        driveForSeconds(countsPerDegreesPerSecond(200),.45,FORWARD);
+        driveForSeconds(200,.45,FORWARD);
         stopForSeconds(2);
         turnForDegrees(540,140,RIGHT);
         stopForSeconds(2);
@@ -318,13 +318,13 @@ void depositBall() {
       
         turnForDegrees(540,140,RIGHT);
         stopForSeconds(2);
-        driveForSeconds(countsPerDegreesPerSecond(200),.8,BACKWARD);
+        driveForSeconds(200,.8,BACKWARD);
         stopForSeconds(2);
         _LATB14 = 1; // solenoid trigger on 
         stopForSeconds(4);
         _LATB14 = 0; // solenoid trigger off
         stopForSeconds(2);
-        driveForSeconds(countsPerDegreesPerSecond(200),.45,FORWARD);
+        driveForSeconds(200,.45,FORWARD);
         stopForSeconds(2);
         turnForDegrees(540,140,LEFT);
         stopForSeconds(2);
