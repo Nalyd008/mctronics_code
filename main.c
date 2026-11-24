@@ -82,7 +82,7 @@
 unsigned char timer1Done = 0;
 unsigned char timer2Done = 0;
 
-double oscFreq;
+unsigned long oscFreq;
 int oscDiv;
 int timerPrescaler;
 int microSteps = 4;
@@ -360,8 +360,8 @@ void lineFollow(){
     double rightLight = (ADC1BUF14 / 4096.);
 
     // light goes high on black, low on white
-    int leftSpeed = 800 - (rightLight * 600) - ((rightLight * middleLight) * 1500) + (leftLight * middleLight * 1500);
-    int rightSpeed = 800 - (leftLight * 600) - ((leftLight * middleLight) * 1500) + (rightLight * middleLight * 1500);
+    int leftSpeed = 600 - (rightLight * 600) - ((rightLight * middleLight) * 100) + (leftLight * middleLight * 1500);
+    int rightSpeed = 600 - (leftLight * 600) - ((leftLight * middleLight) * 100) + (rightLight * middleLight * 1500);
     if(leftSpeed < 0){
         leftSpeed = 0;
     }
@@ -527,7 +527,7 @@ void configADC(void)
                   // AD1CHS register) -- Selecting '0' here
                   // probably makes writing to the AD1CSSL
                   // register unnecessary.
-    _SMPI = 6;    // AD1CON2<6:2> -- Each conversion sent to 
+    _SMPI = 7;    // AD1CON2<6:2> -- Each conversion sent to 
                   // buffer
     _ALTS = 0;    // AD1CON2<0> -- Sample MUXA only
     // _CN2PDE = 1; // Do we need this?
